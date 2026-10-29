@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
-import threading
+import re
 import time
+import uuid
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -26,7 +26,7 @@ from src.web.rendering import is_htmx, render
 
 router = APIRouter(include_in_schema=False)
 
-LAST_CONVERSATION_PREF = "last_conversation"
+LAST_CONVERSATION_PREF = services.LAST_CONVERSATION_PREF
 
 
 def remember_conversation(conversation_id: str | None) -> None:
@@ -39,6 +39,8 @@ def last_conversation_url() -> str:
     conversation_id = history.get_pref(LAST_CONVERSATION_PREF, "")
     return f"/c/{conversation_id}" if conversation_id and history.conversation_exists(conversation_id) else "/"
 
+
+_TOKEN_RE = re.compile(r"^[A-Za-z0-9-]{8,64}$")
 
 STARTER_QUESTIONS = [
     "What is the patch deadline for critical vulnerabilities?",
@@ -56,6 +58,7 @@ def _chat_context(conversation_id: str | None) -> dict:
     history = get_history()
     return {
         "conversation_id": conversation_id,
+        "answer_in_progress": bool(conversation_id and services.INFLIGHT.token_for(conversation_id)),
         "messages": history.messages(conversation_id) if conversation_id else [],
         "history": history_groups(history.conversations()),
         "documents": services.list_documents(),
@@ -78,22 +81,23 @@ def conversation_page(request: Request, conversation_id: str):
     return render(request, "ask.html", page="ask", **_chat_context(conversation_id))
 
 
-async def ask_cancellable(request: Request, question: str, conversation_id: str | None, scope: list[str]):
-    """Answer in a worker thread; if the browser aborts the request, stop the agents."""
-    cancel = threading.Event()
-    job = asyncio.ensure_future(run_in_threadpool(services.ask, question, conversation_id, scope, cancel))
-    while not job.done():
-        if await request.is_disconnected():
-            cancel.set()
-        await asyncio.wait({job}, timeout=0.5)
-    return job.result()
+async def ask_cancellable(request: Request, question: str, conversation_id: str | None, scope: list[str],
+                          token: str | None = None):
+    """Answer in a worker thread. The work continues even if the browser leaves the page (the
+    answer is saved to the conversation); only an explicit Stop (POST /ask/stop) cancels it."""
+    token = token or uuid.uuid4().hex
+    cancel = services.INFLIGHT.start(token, conversation_id or None)
+    try:
+        return await run_in_threadpool(services.ask, question, conversation_id, scope, cancel, token)
+    finally:
+        services.INFLIGHT.finish(token)
 
 
 @router.post("/ask", response_class=HTMLResponse)
 async def ask(request: Request, question: str = Form(""), conversation_id: str = Form(""),
-              scope: list[str] = Form(default_factory=list)):
-    result = await ask_cancellable(request, question, conversation_id or None, scope)
-    remember_conversation(result.conversation_id)
+              scope: list[str] = Form(default_factory=list), ask_token: str = Form("")):
+    token = ask_token if _TOKEN_RE.match(ask_token or "") else None
+    result = await ask_cancellable(request, question, conversation_id or None, scope, token)
     response = render(
         request, "partials/exchange.html",
         result=result, history=history_groups(get_history().conversations()),
@@ -101,6 +105,23 @@ async def ask(request: Request, question: str = Form(""), conversation_id: str =
     )
     if result.created:
         response.headers["HX-Push-Url"] = f"/c/{result.conversation_id}"
+    return response
+
+
+@router.post("/ask/stop", response_class=HTMLResponse)
+def stop_question(ask_token: str = Form(...)):
+    """The Stop button: cancel the agents working on this question."""
+    stopped = services.INFLIGHT.cancel(ask_token)
+    return HTMLResponse("stopping" if stopped else "not running")
+
+
+@router.get("/c/{conversation_id}/wait", response_class=HTMLResponse)
+def wait_for_answer(conversation_id: str):
+    """Polled by a revisited conversation whose answer is still being written."""
+    if services.INFLIGHT.token_for(conversation_id):
+        return HTMLResponse("", status_code=204)
+    response = HTMLResponse("", status_code=286)  # 286 tells HTMX to stop polling
+    response.headers["HX-Refresh"] = "true"
     return response
 
 

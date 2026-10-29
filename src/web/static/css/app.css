@@ -312,6 +312,10 @@ table.data td { white-space: nowrap; }
 .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline-flex; }
 .thinking { align-items: center; gap: .5rem; color: var(--muted); font-size: .88rem; margin-bottom: .5rem; flex-wrap: wrap; }
 .thinking .elapsed { font-variant-numeric: tabular-nums; color: var(--text); }
+.in-progress {
+  display: flex; align-items: center; gap: .6rem; margin: 0 auto 1rem; padding: .7rem .9rem;
+  border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--muted); font-size: .9rem;
+}
 .btn-stop { margin-left: .25rem; }
 .dots { display: inline-flex; gap: 3px; }
 .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: blink 1s infinite ease-in-out; }

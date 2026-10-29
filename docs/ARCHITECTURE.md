@@ -271,7 +271,8 @@ runs as follows:
 | Reviewer fails | The answer is shown with "could not be checked automatically" |
 | Writer fails | The web layer shows the most relevant passages instead, with a notice and a reference ID |
 | Runaway loops | Prevented by `AGENT_RECURSION_LIMIT` and the bounded retry counts |
-| User presses Stop | The browser aborts the request; the server notices the disconnect, sets a cancel event, and the workflow raises `CancelledError` before its next agent step (at most one in-flight model call completes). A "Stopped" turn is recorded in the history. |
+| User presses Stop | The browser posts the question's token to `/ask/stop`; the server sets that question's cancel event and the workflow raises `CancelledError` before its next agent step (at most one in-flight model call completes). A "Stopped" turn is recorded in the history. |
+| User leaves the page mid-answer | Nothing is cancelled: the agents finish in the worker thread and the answer is saved to the conversation. The Ask tab returns to that conversation; if the answer is still being written it shows a notice and polls `/c/{id}/wait`, refreshing when ready. |
 
 **Testing without an API key.** `tests/fakes.py` provides `ScriptedChatModel`, a real LangChain
 `BaseChatModel` whose replies are scripted per call. Structured output and the `create_agent` tool loop therefore
@@ -312,9 +313,11 @@ flowchart LR
   Mono, system fonts only) and three text sizes. `data-theme`, `data-font` and `data-size` are set on `<html>`
   before first paint from `localStorage`, and `system` follows `prefers-color-scheme`. The layout is responsive,
   and the sidebar becomes a slide-in drawer on phones.
-- **Long-running questions.** `/ask` runs the agents in a worker thread while the handler polls for a client
-  disconnect; the **Stop** button aborts the request, the server sets a cancel event and the workflow raises
-  `CancelledError` before its next step. The UI shows elapsed seconds and a status that changes with time.
+- **Long-running questions.** `/ask` runs the agents in a worker thread and registers the question in an
+  in-flight table keyed by a client-generated token. The **Stop** button posts that token to `/ask/stop`, which
+  sets the cancel event; the workflow raises `CancelledError` before its next step. Leaving the page does not
+  cancel: the answer is finished and saved, and a revisited conversation polls until it is ready. The UI shows
+  elapsed seconds and a status that changes with time.
 - **Settings page.** Appearance, the technical-details switch, the AI-answers switch, provider keys, model
   choice with live model lists and a *Test models* action, history deletion, and collapsed system details and
   recent problems. Every control has an ⓘ tooltip (`data-tip`, pure CSS).
@@ -445,7 +448,7 @@ for example, `LOG_ROTATION=weekly-ish` raises a critical `ConfigError` naming th
 | SQL written by an LLM | A query that is "only a SELECT" can still read files (`read_csv('/etc/passwd')`) or install extensions. | DuckDB external access is disabled and the configuration locked, plus a single-SELECT check with DuckDB's own parser, row caps and a timeout. Tests prove file reads are blocked. |
 | Prompt injection vs security content | SecOps documents legitimately discuss prompt injection, so rejecting them would lose real knowledge. | Flag instead of reject: chunks are marked `untrusted`, prompts treat all sources as data, and the question guard ignores quoted text. |
 | Embedded vector store | Embedded Qdrant allows one process and is not built for concurrent threads, which caused lock errors while the old app was still running. | A process-wide store with a thread lock, a clear critical `STORE_LOCKED` message with a fix hint, and a single entry point for the CLI. |
-| Testing agents without an API key | There was no key during development, but the agent logic needed proper tests. | `ScriptedChatModel`, a real `BaseChatModel` with scripted replies, so structured output and the tool-calling agent run through the real LangChain code. 198 tests run offline. |
+| Testing agents without an API key | There was no key during development, but the agent logic needed proper tests. | `ScriptedChatModel`, a real `BaseChatModel` with scripted replies, so structured output and the tool-calling agent run through the real LangChain code. 199 tests run offline. |
 | Library churn | `langchain-community` is being sunset, and Streamlit limited the UX the project needed. | A small FastEmbed adapter in `src/llm.py`, and a move to FastAPI + HTMX with a REST API. |
 | Stale browser assets | Users saw old behaviour after updates because static files were cached by app version. | Content-hash asset URLs (`app.js?v=<sha>`). |
 | Provider overload | On the first live day Google returned 503/504 for `gemini-3.8-flash`; one question took 279 s and the analyst step failed outright. | 503/504 classified as transient; a per-request circuit breaker switches to the fast model after two failed attempts (also for the analyst); the UI shows elapsed time with a **Stop** button that cancels the agents server-side. |

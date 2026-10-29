@@ -91,6 +91,40 @@ def test_ask_tab_returns_to_the_current_conversation(client):
     assert 'href="/" aria-current="page">Ask</a>' in client.get("/").text
 
 
+def test_stop_endpoint_cancels_and_leaving_does_not(client, ai_on, monkeypatch):
+    """Only POST /ask/stop cancels a running question; the in-flight registry tracks it by token."""
+    import threading
+
+    from src.errors import CancelledError
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def slow_ask(question, conversation_id, scope, cancel, token=None):
+        services.INFLIGHT.attach(token, "conv-1")
+        started.set()
+        release.wait(5)
+        if cancel.is_set():
+            raise CancelledError(detail="stopped")
+        return services.AskResult("conv-1", True, question, "done", [], "answer")
+
+    monkeypatch.setattr(services, "ask", slow_ask)
+    assert client.post("/ask/stop", data={"ask_token": "unknown-token"}).text == "not running"
+
+    result = {}
+    worker = threading.Thread(target=lambda: result.update(
+        status=client.post("/ask", data={"question": "slow one", "ask_token": "tok-12345678"}, headers=HTMX).status_code))
+    worker.start()
+    assert started.wait(5)
+    assert client.get("/c/conv-1/wait").status_code == 204  # still writing: keep polling
+    assert client.post("/ask/stop", data={"ask_token": "tok-12345678"}).text == "stopping"
+    release.set()
+    worker.join(5)
+    assert result["status"] == 200  # cancellation is reported as an info-level flash, not a crash
+    wait = client.get("/c/conv-1/wait")
+    assert wait.status_code == 286 and wait.headers["HX-Refresh"] == "true"
+
+
 def test_technical_details_toggle(client):
     client.post("/settings/technical", data={"show_technical": "off"})
     assert "Technical details" not in client.post("/ask", data={"question": "leaked AWS key"}, headers=HTMX).text

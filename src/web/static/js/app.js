@@ -143,6 +143,11 @@
     if (action === "stop-question") {
       const form = document.getElementById("composer");
       const question = form?.dataset.pendingQuestion || "";
+      const token = document.getElementById("ask-token")?.value;
+      if (token) {
+        const body = new URLSearchParams({ ask_token: token });
+        fetch("/ask/stop", { method: "POST", body, keepalive: true }).catch(() => {});
+      }
       htmx.trigger(form, "htmx:abort");
       stopAsking();
       appendStoppedNote(question);
@@ -188,6 +193,11 @@
       const composer = document.getElementById("composer");
       const params = e.detail.requestConfig && e.detail.requestConfig.parameters;
       if (composer) composer.dataset.pendingQuestion = (params && params.question) || document.getElementById("question")?.value || "";
+      // A fresh token identifies this question so Stop can cancel it on the server.
+      const tokenField = document.getElementById("ask-token");
+      const token = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)).replace(/[^A-Za-z0-9-]/g, "");
+      if (tokenField) tokenField.value = token;
+      if (params) params.ask_token = token;
       startAsking();
     }
   });

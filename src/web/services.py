@@ -27,6 +27,51 @@ from src.web.presenters import (
 
 log = logging.getLogger(__name__)
 
+LAST_CONVERSATION_PREF = "last_conversation"
+
+
+class InFlight:
+    """Questions being answered right now, so Stop can cancel them and a revisited
+    conversation can show "still writing". Single-user app: process memory is enough."""
+
+    def __init__(self) -> None:
+        self._jobs: dict[str, dict] = {}
+        self._lock = threading.Lock()
+
+    def start(self, token: str, conversation_id: str | None) -> threading.Event:
+        cancel = threading.Event()
+        with self._lock:
+            self._jobs[token] = {"cancel": cancel, "conversation_id": conversation_id}
+        return cancel
+
+    def attach(self, token: str, conversation_id: str) -> None:
+        with self._lock:
+            if token in self._jobs:
+                self._jobs[token]["conversation_id"] = conversation_id
+
+    def finish(self, token: str) -> None:
+        with self._lock:
+            self._jobs.pop(token, None)
+
+    def cancel(self, token: str) -> bool:
+        with self._lock:
+            job = self._jobs.get(token)
+        if job is None:
+            return False
+        job["cancel"].set()
+        return True
+
+    def running(self, token: str) -> bool:
+        with self._lock:
+            return token in self._jobs
+
+    def token_for(self, conversation_id: str) -> str | None:
+        with self._lock:
+            return next((t for t, j in self._jobs.items() if j["conversation_id"] == conversation_id), None)
+
+
+INFLIGHT = InFlight()
+
 # Files waiting for the user's "add anyway?" decision.  Single-user local app,
 # so process memory is enough; staged copies live in data/uploads/.staging.
 _PENDING: dict[str, ScreeningResult] = {}
@@ -208,7 +253,7 @@ def _preview(question: str, scope: list[str] | None, indexed: dict) -> tuple[str
 
 
 def ask(question: str, conversation_id: str | None = None, scope: list[str] | None = None,
-        cancel: threading.Event | None = None) -> AskResult:
+        cancel: threading.Event | None = None, token: str | None = None) -> AskResult:
     started = time.perf_counter()
     check = check_question(question)
     if not check.allowed and check.reason == "empty":
@@ -222,6 +267,9 @@ def ask(question: str, conversation_id: str | None = None, scope: list[str] | No
         conversation_id = history.create_conversation(check.question)
     previous = [{"role": m["role"], "content": m["content"]} for m in history.messages(conversation_id)]
     history.add_message(conversation_id, "user", check.question)
+    history.set_pref(LAST_CONVERSATION_PREF, conversation_id)  # the Ask tab returns here, even mid-answer
+    if token:
+        INFLIGHT.attach(token, conversation_id)
 
     meta: dict = {"notes": check.notes} if check.notes else {}
     indexed = get_store().sources()

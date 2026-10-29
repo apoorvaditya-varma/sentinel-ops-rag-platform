@@ -20,6 +20,12 @@
         {% include "partials/welcome.html" %}
       {% else %}
         {% for m in messages %}{% include "partials/message.html" %}{% endfor %}
+        {% if answer_in_progress %}
+        <div class="in-progress" hx-get="/c/{{ conversation_id }}/wait" hx-trigger="every 2s" hx-swap="none">
+          <span class="dots"><i></i><i></i><i></i></span>
+          The answer to your last question is still being written. This page will update when it is ready.
+        </div>
+        {% endif %}
       {% endif %}
     </div>
 
@@ -27,6 +33,7 @@
           hx-post="/ask" hx-target="#messages" hx-swap="beforeend"
           hx-indicator="#thinking" hx-disabled-elt="find textarea, find button[type=submit]">
       <input type="hidden" name="conversation_id" id="conversation-id" value="{{ conversation_id or '' }}">
+      <input type="hidden" name="ask_token" id="ask-token" value="">
       <div id="thinking" class="thinking htmx-indicator" role="status">
         <span class="dots"><i></i><i></i><i></i></span>
         <span data-status>Searching your documents…</span>
