@@ -12,7 +12,7 @@ every answer is grounded in your documents.
 Every upload is screened first. Only safe, parseable files that are about the
 platform's subject areas reach the knowledge base.
 
-> Generative AI and ML capstone project (edureka / Illinois Tech).
+> Generative AI and ML capstone project.
 > Source repository: **https://github.com/apoorvaditya-varma/sentinel-ops-rag-platform**
 > (public; the repository never contains the `.env` file).
 
