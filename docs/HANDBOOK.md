@@ -22,7 +22,7 @@ included. To run it:
    ```
 3. `python -m scripts.check_setup` to verify, then continue with section 1.
 
-If the zip has no `.env` (it was built with `--no-env`), create one with `cp .env.example .env`
+If there is no `.env` file, create one with `cp .env.example .env`
 (Windows: `copy .env.example .env`) and add a key either in that file (`GOOGLE_API_KEY=…`, free at
 <https://aistudio.google.com/apikey>) or later on the **Settings** page. **Without a key the app still
 runs**: uploads, screening, search and the chat all work, and the chat shows the most relevant passages
@@ -234,22 +234,7 @@ Verbosity, rotation (by size or time) and JSON output are set in `.env` (`LOG_*`
 
 ---
 
-## 9. Packaging
-
-**Submission zip** (includes `.env` with the project key so graders can run it immediately):
-
-```bash
-bash scripts/make_submission.sh            # -> dist/sentinel-ops-rag-platform-YYYYMMDD.zip
-bash scripts/make_submission.sh --no-env   # same without .env, for sharing outside the LMS
-```
-
-The zip never contains `.venv/`, `.cache/`, logs, the index or history. Share the version with `.env`
-only through the LMS, and **revoke the key** (AI Studio → API keys) once grading is confirmed. The
-GitHub repository never contains `.env` (it is git-ignored).
-
----
-
-## 10. Evaluations
+## 9. Evaluations
 
 Stop the app first (the index allows one process), then:
 

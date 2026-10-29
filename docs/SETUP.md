@@ -140,7 +140,7 @@ python -m pytest -q
 The 196 tests are offline: the LLM stage is replaced by scripted models and only the local search
 models are used. The retrieval tests index the sample corpus into a temporary folder, so your real index
 is not touched. The retrieval and answer-quality evaluations are described in the handbook's
-[Evaluations](HANDBOOK.md#10-evaluations) section.
+[Evaluations](HANDBOOK.md#9-evaluations) section.
 
 ## 8. Regenerate sample data and diagrams (optional)
 
@@ -149,8 +149,7 @@ python -m scripts.generate_sample_data     # data/sample_docs/ (core corpus + ex
 python -m scripts.draw_architecture        # docs/architecture.svg
 ```
 
-Packaging the submission zip and resetting local data are covered in the handbook
-([Packaging](HANDBOOK.md#9-packaging), [Routine tasks](HANDBOOK.md#4-routine-tasks)).
+Resetting local data is covered in the handbook ([Routine tasks](HANDBOOK.md#4-routine-tasks)).
 
 ---
 

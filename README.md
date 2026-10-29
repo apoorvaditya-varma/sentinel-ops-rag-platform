@@ -276,7 +276,6 @@ scripts/
   ingest.py                 Screen + index files / folders from the CLI; --reindex
   generate_sample_data.py   Synthetic corpus
   draw_architecture.py      Renders docs/architecture.svg
-  make_submission.sh        Builds the LMS zip
 data/
   sample_docs/              Demo corpus (+ extra/, offtopic/, redteam/ for hand uploads)
   eval/                     retrieval_golden.yaml (24 questions), answer_golden.yaml (13 questions)
