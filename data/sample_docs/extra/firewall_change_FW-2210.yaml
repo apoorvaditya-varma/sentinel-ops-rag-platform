@@ -1,0 +1,28 @@
+# Firewall change request FW-2210 (Palo Alto, data-centre edge)
+change_id: FW-2210
+title: Allow payment-api to reach the new ledger database replica in eu-west-2
+requested_by: payments team
+approved_by: network security (k.tanaka)
+cab_reference: CHG-8905
+window: 2026-10-27T01:00:00Z/2026-10-27T02:00:00Z
+risk: low
+rules:
+  - action: allow
+    from_zone: app-prod
+    to_zone: db-prod-replica
+    source: 10.20.4.0/24        # payment-api pods
+    destination: 10.44.8.10/32  # ledger replica, eu-west-2
+    protocol: tcp
+    port: 5432
+    logging: enabled
+  - action: deny
+    from_zone: any
+    to_zone: db-prod-replica
+    source: any
+    destination: 10.44.8.0/24
+    protocol: any
+    comment: explicit deny for everything else (default-deny policy, section 5 of the network standard)
+verification:
+  - run: nc -zv 10.44.8.10 5432 from a payment-api pod
+  - check: firewall logs show ALLOW entries for 10.20.4.0/24 only
+rollback: remove both rules; the previous policy snapshot is fw-policy-2026-10-20.

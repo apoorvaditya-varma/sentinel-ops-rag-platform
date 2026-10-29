@@ -1,0 +1,41 @@
+{
+  "Version": "2012-10-17",
+  "Description": "Read-only access to the production log bucket for the SOC analysts role (CloudOps baseline, section 3)",
+  "Statement": [
+    {
+      "Sid": "ReadProdLogs",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::northwind-prod-logs",
+        "arn:aws:s3:::northwind-prod-logs/*"
+      ],
+      "Condition": {
+        "Bool": {
+          "aws:SecureTransport": "true"
+        },
+        "IpAddress": {
+          "aws:SourceIp": [
+            "10.20.0.0/16"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyDelete",
+      "Effect": "Deny",
+      "Action": [
+        "s3:DeleteObject",
+        "s3:DeleteBucket",
+        "s3:PutBucketPolicy"
+      ],
+      "Resource": [
+        "arn:aws:s3:::northwind-prod-logs",
+        "arn:aws:s3:::northwind-prod-logs/*"
+      ]
+    }
+  ]
+}

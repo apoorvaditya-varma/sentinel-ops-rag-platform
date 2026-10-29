@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-api
+  namespace: payments
+  labels: {app: payment-api, tier: backend, owner: payments}
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  selector:
+    matchLabels: {app: payment-api}
+  template:
+    metadata:
+      labels: {app: payment-api}
+    spec:
+      containers:
+        - name: api
+          image: registry.internal/payment-api:2.14.1
+          ports: [{containerPort: 8080}]
+          env:
+            - name: DB_POOL_SIZE
+              value: "50"   # CHG-8903: was 5 in 2.14.0 (INC-2041)
+            - name: DB_URL
+              valueFrom: {secretKeyRef: {name: ledger-db, key: url}}
+          resources:
+            requests: {cpu: 250m, memory: 256Mi}
+            limits: {cpu: "1", memory: 512Mi}
+          livenessProbe:
+            httpGet: {path: /healthz, port: 8080}
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: {path: /ready, port: 8080}
+            initialDelaySeconds: 5

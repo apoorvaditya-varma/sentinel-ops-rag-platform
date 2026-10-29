@@ -1,0 +1,25 @@
+DISASTER RECOVERY TEST REPORT - Q3 2026
+Exercise date: 2026-09-18 | Scope: payments platform (payment-api, ledger database) | Type: full failover
+
+Objectives and targets
+- RTO target: 4 hours. RPO target: 15 minutes (from the business continuity plan).
+- Fail over the ledger database and payment-api from eu-west-1 to eu-west-2 and process test transactions.
+
+Timeline (UTC)
+10:00 Exercise declared. Primary region traffic frozen.
+10:04 Database failover to the eu-west-2 replica initiated.
+10:21 Replica promoted. Data loss measured against the last confirmed transaction: 4 minutes.
+10:50 payment-api scaled up in eu-west-2 (3 replicas), health checks green.
+11:35 DNS cut-over completed. Client failover was delayed by the DNS TTL of 1 hour.
+12:10 Test transactions processed successfully. Exercise closed.
+
+Results
+- Achieved RTO: 2 hours 10 minutes (target 4 hours) - PASS.
+- Achieved RPO: 4 minutes (target 15 minutes) - PASS.
+- Runbook accuracy: two steps were out of date (IAM role names changed in August).
+
+Findings and actions
+1. Lower the DNS TTL for api.northwind.example from 1 hour to 5 minutes. Owner: network team. Due 2026-10-15.
+2. Update the failover runbook IAM role names. Owner: platform team. Due 2026-10-01.
+3. Automate replica promotion to cut the 17-minute manual step. Owner: data team. Due 2026-12-31.
+Next full test: Q1 2027. Backup restore test (quarterly) remains scheduled for 2026-12-05.

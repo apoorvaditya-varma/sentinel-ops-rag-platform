@@ -305,6 +305,251 @@ def build_deployments() -> pd.DataFrame:
     return df.sort_values("deployed_at_utc").reset_index(drop=True)
 
 
+# ---------------------------------------------------------------------------
+# Extra demo documents (data/sample_docs/extra): newer subject areas and every
+# accepted file type. Not loaded by "Try sample documents"; upload them by hand.
+# ---------------------------------------------------------------------------
+CHANGE_RECORD = [
+    ("Change record CHG-8903 - Increase payment-api database connection pool", ""),
+    ("Summary", "Raise the production connection pool size of payment-api from 5 to 50 and add a CI policy check "
+     "that blocks pool sizes below 20 in production Helm values. This is corrective action item 1 from the "
+     "INC-2041 postmortem."),
+    ("Classification", "Type: Normal change. Risk: Medium. Priority: P2. Requested by: payments team. "
+     "CAB approval: approved on 2026-10-21 by the Change Advisory Board (chair: M. Silva)."),
+    ("Implementation plan", "1. Merge PR 2311 updating values-production.yaml (pool_size: 50).\n"
+     "2. Deploy payment-api 2.14.1 through the standard pipeline with a 10 percent canary for 30 minutes.\n"
+     "3. Verify database connection count stays below 60 percent of the RDS maximum.\n"
+     "4. Promote to 100 percent."),
+    ("Backout plan", "Roll back to payment-api 2.13.2 with kubectl rollout undo. Expected backout time: 5 minutes. "
+     "No data migration is involved."),
+    ("Schedule", "Maintenance window: 2026-10-28 02:00-03:00 UTC. Implementer: p.nair. Verifier: l.chen."),
+    ("Linked records", "Incident INC-2041. Problem PRB-311 (recurring connection exhaustion). Deployment DEP-1187 (cause)."),
+]
+
+AI_POLICY = """# Generative AI Acceptable Use Standard
+Northwind Cloud Ltd. - Internal - Version 1.1 - Effective 2026-09-01
+
+## 1. Scope
+Applies to all staff and contractors using generative AI tools (chat assistants, code assistants,
+image generators) for company work, whether company-provided or public.
+
+## 2. Approved tools
+- Approved: the internal Sentinel assistant, GitHub Copilot Business, and Gemini Enterprise under the company tenant.
+- Public consumer chatbots may be used only with public information.
+
+## 3. Data rules
+- Never enter Restricted or Confidential data (customer PII, credentials, source code of core services,
+  incident details) into a public AI tool.
+- Prompts and outputs in approved tools are logged for 90 days for security review.
+
+## 4. Use in engineering
+- AI-generated code must go through the normal code review and SAST scan; the author remains accountable.
+- AI must not approve pull requests, merge code or run production changes without a human decision.
+
+## 5. Model and application risk
+- Any product feature that uses an LLM requires a model risk assessment and red-team testing for prompt
+  injection, data leakage and excessive agency before launch, following the NIST AI RMF and ISO/IEC 42001.
+- Internal LLM applications must treat retrieved documents as untrusted input and cite their sources.
+
+## 6. Reporting
+Suspected data leaks through AI tools are security incidents: report within 1 hour to the SOC
+(see the incident response plan). Policy owner: Head of Security. Review: annually.
+"""
+
+DR_TEST_REPORT = """DISASTER RECOVERY TEST REPORT - Q3 2026
+Exercise date: 2026-09-18 | Scope: payments platform (payment-api, ledger database) | Type: full failover
+
+Objectives and targets
+- RTO target: 4 hours. RPO target: 15 minutes (from the business continuity plan).
+- Fail over the ledger database and payment-api from eu-west-1 to eu-west-2 and process test transactions.
+
+Timeline (UTC)
+10:00 Exercise declared. Primary region traffic frozen.
+10:04 Database failover to the eu-west-2 replica initiated.
+10:21 Replica promoted. Data loss measured against the last confirmed transaction: 4 minutes.
+10:50 payment-api scaled up in eu-west-2 (3 replicas), health checks green.
+11:35 DNS cut-over completed. Client failover was delayed by the DNS TTL of 1 hour.
+12:10 Test transactions processed successfully. Exercise closed.
+
+Results
+- Achieved RTO: 2 hours 10 minutes (target 4 hours) - PASS.
+- Achieved RPO: 4 minutes (target 15 minutes) - PASS.
+- Runbook accuracy: two steps were out of date (IAM role names changed in August).
+
+Findings and actions
+1. Lower the DNS TTL for api.northwind.example from 1 hour to 5 minutes. Owner: network team. Due 2026-10-15.
+2. Update the failover runbook IAM role names. Owner: platform team. Due 2026-10-01.
+3. Automate replica promotion to cut the 17-minute manual step. Owner: data team. Due 2026-12-31.
+Next full test: Q1 2027. Backup restore test (quarterly) remains scheduled for 2026-12-05.
+"""
+
+FIREWALL_CHANGE = """# Firewall change request FW-2210 (Palo Alto, data-centre edge)
+change_id: FW-2210
+title: Allow payment-api to reach the new ledger database replica in eu-west-2
+requested_by: payments team
+approved_by: network security (k.tanaka)
+cab_reference: CHG-8905
+window: 2026-10-27T01:00:00Z/2026-10-27T02:00:00Z
+risk: low
+rules:
+  - action: allow
+    from_zone: app-prod
+    to_zone: db-prod-replica
+    source: 10.20.4.0/24        # payment-api pods
+    destination: 10.44.8.10/32  # ledger replica, eu-west-2
+    protocol: tcp
+    port: 5432
+    logging: enabled
+  - action: deny
+    from_zone: any
+    to_zone: db-prod-replica
+    source: any
+    destination: 10.44.8.0/24
+    protocol: any
+    comment: explicit deny for everything else (default-deny policy, section 5 of the network standard)
+verification:
+  - run: nc -zv 10.44.8.10 5432 from a payment-api pod
+  - check: firewall logs show ALLOW entries for 10.20.4.0/24 only
+rollback: remove both rules; the previous policy snapshot is fw-policy-2026-10-20.
+"""
+
+IAM_POLICY = {
+    "Version": "2012-10-17",
+    "Description": "Read-only access to the production log bucket for the SOC analysts role (CloudOps baseline, section 3)",
+    "Statement": [
+        {"Sid": "ReadProdLogs", "Effect": "Allow",
+         "Action": ["s3:GetObject", "s3:ListBucket"],
+         "Resource": ["arn:aws:s3:::northwind-prod-logs", "arn:aws:s3:::northwind-prod-logs/*"],
+         "Condition": {"Bool": {"aws:SecureTransport": "true"}, "IpAddress": {"aws:SourceIp": ["10.20.0.0/16"]}}},
+        {"Sid": "DenyDelete", "Effect": "Deny",
+         "Action": ["s3:DeleteObject", "s3:DeleteBucket", "s3:PutBucketPolicy"],
+         "Resource": ["arn:aws:s3:::northwind-prod-logs", "arn:aws:s3:::northwind-prod-logs/*"]},
+    ],
+}
+
+K8S_MANIFEST = """apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-api
+  namespace: payments
+  labels: {app: payment-api, tier: backend, owner: payments}
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  selector:
+    matchLabels: {app: payment-api}
+  template:
+    metadata:
+      labels: {app: payment-api}
+    spec:
+      containers:
+        - name: api
+          image: registry.internal/payment-api:2.14.1
+          ports: [{containerPort: 8080}]
+          env:
+            - name: DB_POOL_SIZE
+              value: "50"   # CHG-8903: was 5 in 2.14.0 (INC-2041)
+            - name: DB_URL
+              valueFrom: {secretKeyRef: {name: ledger-db, key: url}}
+          resources:
+            requests: {cpu: 250m, memory: 256Mi}
+            limits: {cpu: "1", memory: 512Mi}
+          livenessProbe:
+            httpGet: {path: /healthz, port: 8080}
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: {path: /ready, port: 8080}
+            initialDelaySeconds: 5
+"""
+
+
+def build_cost_report() -> pd.DataFrame:
+    services = [("EC2", 41200), ("RDS", 18900), ("S3", 6100), ("EKS", 9800), ("Data Transfer", 7400),
+                ("CloudWatch", 2300), ("Lambda", 900), ("SageMaker", 14600)]
+    accounts = ["prod-payments", "prod-platform", "staging", "ml-sandbox"]
+    rows = []
+    for service, base in services:
+        for account in accounts:
+            share = {"prod-payments": 0.45, "prod-platform": 0.3, "staging": 0.1, "ml-sandbox": 0.15}[account]
+            if service == "SageMaker":
+                share = {"ml-sandbox": 0.9, "prod-platform": 0.1}.get(account, 0)
+            if share == 0:
+                continue
+            september = round(base * share * RNG.uniform(0.95, 1.05), 2)
+            change = RNG.uniform(-0.05, 0.08)
+            if account == "ml-sandbox" and service in ("EC2", "SageMaker"):
+                change = RNG.uniform(0.35, 0.6)  # untagged GPU instances
+            rows.append({
+                "month": "2026-09", "account": account, "service": service,
+                "cost_usd": september, "previous_month_usd": round(september / (1 + change), 2),
+                "change_pct": round(change * 100, 1),
+                "tagged_pct": RNG.randint(40, 70) if account == "ml-sandbox" else RNG.randint(88, 100),
+                "savings_plan_coverage_pct": RNG.randint(55, 70) if service in ("EC2", "EKS") else None,
+            })
+    return pd.DataFrame(rows)
+
+
+def build_auth_log() -> str:
+    lines = []
+    start = datetime(2026, 10, 23, 8, 0, 0)
+    users = ["a.sharma", "j.mueller", "k.tanaka", "m.silva"]
+    t = start
+    for i in range(80):
+        t += timedelta(seconds=RNG.randint(5, 90))
+        user = RNG.choice(users)
+        ip = f"10.20.4.{RNG.randint(2, 60)}"
+        result = "ACCEPT" if RNG.random() < 0.9 else "FAIL"
+        lines.append(f"{t:%Y-%m-%dT%H:%M:%S}Z auth-gw sshd[{1000 + i}]: {result} password for {user} from {ip} port {RNG.randint(40000, 65000)}")
+    # Brute-force burst from the SIEM alert's source IP.
+    t = datetime(2026, 10, 23, 11, 52, 0)
+    for i in range(27):
+        t += timedelta(seconds=RNG.randint(3, 12))
+        lines.append(f"{t:%Y-%m-%dT%H:%M:%S}Z auth-gw sshd[{2000 + i}]: FAIL password for admin.ops from 203.0.113.61 port {RNG.randint(40000, 65000)}")
+    lines.append(f"{t + timedelta(seconds=4):%Y-%m-%dT%H:%M:%S}Z auth-gw fail2ban: BAN 203.0.113.61 (27 failures in 5 minutes, rule T1110)")
+    return "\n".join(sorted(lines)) + "\n"
+
+
+HR_LEAVE_POLICY = [
+    ("Employee Leave Policy", ""),
+    ("Annual leave", "Full-time employees are entitled to 24 days of paid annual leave per calendar year plus "
+     "public holidays. Requests go to the line manager at least two weeks in advance through the HR portal."),
+    ("Sick leave", "Sick leave beyond three consecutive days requires a medical certificate."),
+    ("Carry-over", "Up to five unused days may be carried into the next year."),
+]
+
+
+def write_docx(path: Path, sections: list[tuple[str, str]]) -> None:
+    from docx import Document as DocxDocument
+
+    doc = DocxDocument()
+    title, _ = sections[0]
+    doc.add_heading(title, level=1)
+    for heading, body in sections[1:]:
+        doc.add_heading(heading, level=2)
+        for paragraph in body.split("\n"):
+            doc.add_paragraph(paragraph)
+    doc.save(str(path))
+
+
+def write_extra(out: Path) -> None:
+    import json
+
+    out.mkdir(parents=True, exist_ok=True)
+    write_docx(out / "change_record_CHG-8903.docx", CHANGE_RECORD)
+    (out / "ai_acceptable_use_standard.md").write_text(AI_POLICY)
+    (out / "dr_test_report_2026-Q3.txt").write_text(DR_TEST_REPORT)
+    (out / "firewall_change_FW-2210.yaml").write_text(FIREWALL_CHANGE)
+    (out / "iam_policy_soc_readonly_logs.json").write_text(json.dumps(IAM_POLICY, indent=2))
+    (out / "payment-api-deployment.yaml").write_text(K8S_MANIFEST)
+    build_cost_report().to_csv(out / "cloud_cost_report_2026-09.csv", index=False)
+    (out / "auth-gateway_2026-10-23.log").write_text(build_auth_log())
+    (out / "offtopic_hr_leave_policy.docx").parent.mkdir(exist_ok=True)
+    write_docx(out / "offtopic_hr_leave_policy.docx", HR_LEAVE_POLICY)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "redteam").mkdir(exist_ok=True)
@@ -319,6 +564,7 @@ def main() -> None:
     build_scan_findings().to_excel(OUT / "vulnerability_scan_2026Q3.xlsx", sheet_name="findings", index=False)
     build_siem_alerts().to_csv(OUT / "siem_alerts_2026-10.csv", index=False)
     build_deployments().to_csv(OUT / "deployments_2026-10.csv", index=False)
+    write_extra(OUT / "extra")
 
     for path in sorted(OUT.rglob("*.*")):
         print(f"{path.relative_to(OUT)}  ({path.stat().st_size / 1024:.1f} KB)")
