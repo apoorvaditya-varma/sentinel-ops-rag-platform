@@ -280,7 +280,7 @@ data/
   sample_docs/              Demo corpus (+ extra/, offtopic/, redteam/ for hand uploads)
   eval/                     retrieval_golden.yaml (24 questions), answer_golden.yaml (13 questions)
 docs/                       HANDBOOK.md, SETUP.md, ARCHITECTURE.md, architecture.svg
-tests/                      pytest suite (offline, 196 tests)
+tests/                      pytest suite (offline, 197 tests)
 ```
 
 ## Progress
@@ -312,7 +312,7 @@ and observability.
 ## Tests
 
 ```bash
-python -m pytest -q                       # 196 tests, offline (no API key needed), ~40 s
+python -m pytest -q                       # 197 tests, offline (no API key needed), ~40 s
 python -m src.evaluation.retrieval_eval   # retrieval benchmark (needs the sample corpus indexed)
 python -m src.evaluation.answer_eval      # answer quality, 13 golden questions (needs GOOGLE_API_KEY)
 ```

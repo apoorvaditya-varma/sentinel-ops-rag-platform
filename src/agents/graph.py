@@ -240,15 +240,13 @@ def build_graph(models: Models, tables: TableStore, cancel: threading.Event | No
             return result["messages"][-1].text.strip()
 
         note = ""
+        was_degraded = models.degraded
         try:
-            try:
-                summary = analyse(models.strong_or_fallback())
-            except Exception as exc:  # noqa: BLE001 - overloaded strong model: retry once with the fast model
-                if models.degraded:
-                    raise
-                models.trip(exc, "data analysis")
+            # Same policy as the writer: retries on transient errors, strong model first,
+            # then the circuit breaker switches to the fast model (also with retries).
+            summary = _call_strong(models, analyse)
+            if models.degraded and not was_degraded:
                 note = " (strong model unavailable, used fast model)"
-                summary = analyse(models.fast)
         except CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - the writer can still use other findings

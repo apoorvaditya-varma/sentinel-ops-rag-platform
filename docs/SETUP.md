@@ -137,7 +137,7 @@ lives, the API, routine tasks and runtime troubleshooting) is in the
 python -m pytest -q
 ```
 
-The 196 tests are offline: the LLM stage is replaced by scripted models and only the local search
+The 197 tests are offline: the LLM stage is replaced by scripted models and only the local search
 models are used. The retrieval tests index the sample corpus into a temporary folder, so your real index
 is not touched. The retrieval and answer-quality evaluations are described in the handbook's
 [Evaluations](HANDBOOK.md#9-evaluations) section.

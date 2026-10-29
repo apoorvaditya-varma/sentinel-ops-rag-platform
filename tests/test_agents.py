@@ -170,6 +170,36 @@ def test_analyst_date_columns_are_json_safe(stores):
     json.dumps(query)  # must not raise
 
 
+def test_analyst_survives_a_transient_error_on_the_fast_model(stores, monkeypatch):
+    """Strong model overloaded (breaker trips) and the fast model's first analysis attempt hits a 503:
+    the analysis must still complete instead of reporting 'Analysis failed'."""
+    monkeypatch.setattr("src.errors.time.sleep", lambda s: None)
+    sql = f"SELECT COUNT(*) AS n FROM {SCAN} WHERE status = 'Open'"
+    loop = sql_analyst(sql, "Counted open findings.")
+    failures = {"fast": 1}
+
+    def fast(messages, tools):
+        if "run_sql" in tools:
+            if failures["fast"]:
+                failures["fast"] -= 1
+                raise TimeoutError("503 UNAVAILABLE high demand")
+            return loop(messages)
+        if "Plan" in tools:
+            return tool_call("Plan", plan(("analyst", "Count open findings")))
+        return tool_call("Review", {"grounded": True, "answers_question": True})
+
+    def strong(messages, tools):
+        if "run_sql" in tools:
+            raise TimeoutError("504 DEADLINE_EXCEEDED")  # strong model unavailable for analysis
+        return AIMessage(content="There are open findings [T1].")
+
+    result = run_agents("open findings?", models=Models(ScriptedChatModel(responder=strong),
+                                                        ScriptedChatModel(responder=fast)), tables=stores[1])
+    summary = next(t for t in result.trace if t["agent"] == "analyst" and t["action"] == "summary")["detail"]
+    assert "Analysis failed" not in summary and "used fast model" in summary
+    assert [s["label"] for s in result.sources if s["kind"] == "query"] == ["T1"]
+
+
 def test_analyst_sql_errors_are_returned_to_the_agent(stores):
     bad = iter(["DROP TABLE x", f"SELECT COUNT(*) FROM {SCAN}"])
     seen_errors = []
