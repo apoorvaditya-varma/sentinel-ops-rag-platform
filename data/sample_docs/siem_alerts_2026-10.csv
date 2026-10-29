@@ -1,0 +1,91 @@
+alert_id,timestamp_utc,rule_name,mitre_technique,severity,src_ip,dest_host,user,status,triage_minutes
+ALRT-70003,2026-10-01 00:26:00,Internal port scan detected,T1046,Medium,203.0.113.112,web-db-11,svc-backup,Closed - False Positive,62
+ALRT-70036,2026-10-01 13:23:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,198.51.100.124,data-web-03,a.sharma,Closed - True Positive,35
+ALRT-70020,2026-10-01 22:15:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,203.0.113.34,data-db-02,admin.ops,Closed - True Positive,30
+ALRT-70017,2026-10-02 05:36:00,Internal port scan detected,T1046,Medium,198.51.100.36,data-api-01,svc-backup,Closed - False Positive,51
+ALRT-70042,2026-10-02 11:39:00,Internal port scan detected,T1046,Medium,10.20.4.74,data-api-11,j.mueller,Closed - False Positive,36
+ALRT-70070,2026-10-03 05:34:00,Internal port scan detected,T1046,Medium,10.20.4.129,identity-api-10,svc-backup,Investigating,31
+ALRT-70019,2026-10-03 08:53:00,Phishing link clicked (mail gateway),T1566.002,Medium,198.51.100.59,platform-db-01,a.sharma,Investigating,34
+ALRT-70051,2026-10-03 11:12:00,Internal port scan detected,T1046,Medium,198.51.100.161,data-db-08,a.sharma,Closed - False Positive,29
+ALRT-70040,2026-10-03 17:47:00,Internal port scan detected,T1046,Medium,10.20.4.27,payments-db-04,svc-backup,Closed - True Positive,87
+ALRT-70013,2026-10-03 20:00:00,Internal port scan detected,T1046,Medium,198.51.100.101,web-db-01,admin.ops,Closed - False Positive,51
+ALRT-70011,2026-10-04 12:37:00,Login from new country for privileged user,T1078,High,203.0.113.71,identity-web-09,a.sharma,Open,20
+ALRT-70050,2026-10-05 00:11:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,198.51.100.31,data-db-01,m.silva,Closed - False Positive,72
+ALRT-70005,2026-10-05 06:00:00,Phishing link clicked (mail gateway),T1566.002,Medium,203.0.113.174,identity-api-04,j.mueller,Open,6
+ALRT-70080,2026-10-05 12:09:00,Beaconing to rare external domain,T1071.001,High,10.20.4.106,identity-api-12,svc-backup,Open,30
+ALRT-70034,2026-10-05 13:48:00,Login from new country for privileged user,T1078,High,198.51.100.60,identity-api-05,a.sharma,Open,93
+ALRT-70049,2026-10-05 18:15:00,Login from new country for privileged user,T1078,High,198.51.100.107,data-web-11,k.tanaka,Investigating,73
+ALRT-70022,2026-10-05 22:04:00,Mass file rename consistent with ransomware,T1486,Critical,198.51.100.149,data-web-12,j.mueller,Closed - True Positive,12
+ALRT-70052,2026-10-06 23:06:00,Login from new country for privileged user,T1078,High,198.51.100.227,data-api-01,m.silva,Investigating,80
+ALRT-70073,2026-10-07 00:21:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,198.51.100.137,web-web-03,svc-backup,Open,64
+ALRT-70079,2026-10-07 04:10:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,198.51.100.173,web-web-10,m.silva,Closed - False Positive,22
+ALRT-70038,2026-10-07 18:57:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,198.51.100.23,payments-api-09,k.tanaka,Open,80
+ALRT-70054,2026-10-08 00:10:00,Beaconing to rare external domain,T1071.001,High,10.20.4.76,web-db-05,k.tanaka,Closed - False Positive,64
+ALRT-70061,2026-10-08 00:36:00,Internal port scan detected,T1046,Medium,198.51.100.88,web-db-07,m.silva,Closed - False Positive,13
+ALRT-70053,2026-10-08 04:59:00,Phishing link clicked (mail gateway),T1566.002,Medium,203.0.113.143,data-api-04,a.sharma,Closed - False Positive,62
+ALRT-70085,2026-10-08 22:35:00,Internal port scan detected,T1046,Medium,203.0.113.35,platform-web-04,admin.ops,Closed - False Positive,44
+ALRT-70033,2026-10-09 10:13:00,Beaconing to rare external domain,T1071.001,High,10.20.4.125,identity-db-10,admin.ops,Closed - False Positive,79
+ALRT-70082,2026-10-09 15:19:00,Encoded PowerShell command execution,T1059.001,Critical,198.51.100.25,payments-db-11,admin.ops,Investigating,5
+ALRT-70029,2026-10-09 16:41:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,10.20.4.106,data-db-04,m.silva,Closed - False Positive,63
+ALRT-70000,2026-10-09 23:12:00,Internal port scan detected,T1046,Medium,203.0.113.244,identity-db-06,m.silva,Closed - False Positive,18
+ALRT-70043,2026-10-10 00:04:00,Phishing link clicked (mail gateway),T1566.002,Medium,10.20.4.59,payments-web-03,a.sharma,Closed - False Positive,10
+ALRT-70028,2026-10-10 15:41:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,198.51.100.89,identity-db-12,svc-backup,Closed - False Positive,74
+ALRT-70004,2026-10-10 17:25:00,Internal port scan detected,T1046,Medium,10.20.4.45,platform-web-09,m.silva,Closed - True Positive,84
+ALRT-70015,2026-10-11 00:53:00,Phishing link clicked (mail gateway),T1566.002,Medium,198.51.100.113,data-api-07,svc-backup,Closed - False Positive,88
+ALRT-70039,2026-10-11 06:30:00,Internal port scan detected,T1046,Medium,198.51.100.117,data-web-10,k.tanaka,Open,42
+ALRT-70084,2026-10-11 14:29:00,Internal port scan detected,T1046,Medium,203.0.113.203,web-api-05,j.mueller,Closed - False Positive,19
+ALRT-70081,2026-10-11 17:53:00,Internal port scan detected,T1046,Medium,203.0.113.177,identity-db-11,svc-backup,Investigating,10
+ALRT-70041,2026-10-11 21:59:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,203.0.113.42,platform-web-08,m.silva,Closed - False Positive,79
+ALRT-70023,2026-10-12 01:15:00,Internal port scan detected,T1046,Medium,198.51.100.219,web-api-10,a.sharma,Closed - False Positive,47
+ALRT-70055,2026-10-12 02:13:00,AWS key in public repo,T1552.001,Critical,203.0.113.100,payments-db-09,m.silva,Closed - False Positive,20
+ALRT-70027,2026-10-12 02:21:00,Beaconing to rare external domain,T1071.001,High,10.20.4.158,data-web-01,k.tanaka,Open,44
+ALRT-70071,2026-10-12 09:45:00,Phishing link clicked (mail gateway),T1566.002,Medium,10.20.4.198,payments-db-02,m.silva,Closed - True Positive,85
+ALRT-70021,2026-10-12 15:53:00,Internal port scan detected,T1046,Medium,203.0.113.157,web-db-12,a.sharma,Open,23
+ALRT-70086,2026-10-13 01:51:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,10.20.4.109,web-api-12,a.sharma,Closed - False Positive,63
+ALRT-70047,2026-10-13 06:22:00,AWS key in public repo,T1552.001,Critical,203.0.113.122,web-db-08,svc-backup,Closed - True Positive,26
+ALRT-70032,2026-10-13 07:54:00,Phishing link clicked (mail gateway),T1566.002,Medium,203.0.113.32,payments-web-02,m.silva,Closed - False Positive,71
+ALRT-70035,2026-10-13 11:37:00,Internal port scan detected,T1046,Medium,203.0.113.143,identity-db-03,m.silva,Closed - False Positive,65
+ALRT-70056,2026-10-13 13:44:00,Beaconing to rare external domain,T1071.001,High,198.51.100.89,web-web-01,svc-backup,Open,95
+ALRT-70063,2026-10-14 01:53:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,10.20.4.25,data-api-11,m.silva,Investigating,15
+ALRT-70074,2026-10-14 10:22:00,Mass file rename consistent with ransomware,T1486,Critical,198.51.100.207,platform-web-02,j.mueller,Open,31
+ALRT-70064,2026-10-14 15:05:00,Internal port scan detected,T1046,Medium,203.0.113.85,platform-web-06,svc-backup,Investigating,58
+ALRT-70001,2026-10-14 16:01:00,Phishing link clicked (mail gateway),T1566.002,Medium,10.20.4.106,identity-web-12,svc-backup,Closed - True Positive,73
+ALRT-70078,2026-10-14 18:04:00,Phishing link clicked (mail gateway),T1566.002,Medium,203.0.113.37,platform-api-05,k.tanaka,Closed - True Positive,17
+ALRT-70044,2026-10-14 23:59:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,10.20.4.237,identity-web-02,k.tanaka,Closed - True Positive,91
+ALRT-70009,2026-10-15 10:34:00,Internal port scan detected,T1046,Medium,198.51.100.158,web-web-09,k.tanaka,Investigating,23
+ALRT-70058,2026-10-15 15:28:00,Encoded PowerShell command execution,T1059.001,Critical,10.20.4.63,web-web-04,k.tanaka,Investigating,8
+ALRT-70046,2026-10-15 16:03:00,Beaconing to rare external domain,T1071.001,High,203.0.113.25,payments-db-10,admin.ops,Closed - True Positive,5
+ALRT-70060,2026-10-16 02:37:00,Mass file rename consistent with ransomware,T1486,Critical,198.51.100.27,web-web-01,m.silva,Investigating,21
+ALRT-70083,2026-10-16 04:16:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,203.0.113.203,web-api-02,admin.ops,Closed - False Positive,29
+ALRT-70014,2026-10-17 00:12:00,Internal port scan detected,T1046,Medium,198.51.100.220,data-db-12,m.silva,Closed - False Positive,72
+ALRT-70069,2026-10-17 08:04:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,10.20.4.77,platform-db-07,svc-backup,Closed - True Positive,4
+ALRT-70087,2026-10-17 11:26:00,Internal port scan detected,T1046,Medium,203.0.113.117,web-api-10,a.sharma,Closed - True Positive,87
+ALRT-70076,2026-10-17 18:35:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,10.20.4.69,web-web-11,svc-backup,Closed - True Positive,16
+ALRT-70031,2026-10-17 19:04:00,Login from new country for privileged user,T1078,High,10.20.4.90,data-db-09,svc-backup,Closed - False Positive,48
+ALRT-70024,2026-10-17 20:45:00,Internal port scan detected,T1046,Medium,10.20.4.89,platform-web-08,a.sharma,Closed - False Positive,58
+ALRT-70062,2026-10-18 07:04:00,Beaconing to rare external domain,T1071.001,High,10.20.4.185,data-db-01,admin.ops,Investigating,11
+ALRT-70012,2026-10-18 10:22:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,10.20.4.56,platform-web-07,svc-backup,Closed - True Positive,72
+ALRT-70075,2026-10-19 02:04:00,Beaconing to rare external domain,T1071.001,High,10.20.4.95,platform-web-01,svc-backup,Investigating,71
+ALRT-70045,2026-10-19 07:38:00,Login from new country for privileged user,T1078,High,10.20.4.140,data-web-02,admin.ops,Investigating,8
+ALRT-70016,2026-10-19 09:37:00,Phishing link clicked (mail gateway),T1566.002,Medium,198.51.100.237,payments-db-09,a.sharma,Open,53
+ALRT-70065,2026-10-19 18:04:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,203.0.113.45,payments-api-10,k.tanaka,Closed - True Positive,82
+ALRT-70002,2026-10-20 03:14:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,198.51.100.175,payments-db-10,svc-backup,Closed - True Positive,54
+ALRT-70068,2026-10-20 07:27:00,Login from new country for privileged user,T1078,High,198.51.100.218,identity-api-07,k.tanaka,Closed - True Positive,16
+ALRT-70048,2026-10-20 20:06:00,AWS key in public repo,T1552.001,Critical,198.51.100.250,platform-web-06,k.tanaka,Closed - True Positive,45
+ALRT-70072,2026-10-21 01:29:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,198.51.100.189,payments-api-05,svc-backup,Closed - False Positive,56
+ALRT-70089,2026-10-21 04:29:00,Internal port scan detected,T1046,Medium,203.0.113.84,web-api-02,j.mueller,Closed - False Positive,38
+ALRT-70018,2026-10-21 16:39:00,Login from new country for privileged user,T1078,High,198.51.100.73,data-web-02,k.tanaka,Closed - False Positive,5
+ALRT-70088,2026-10-21 20:18:00,Internal port scan detected,T1046,Medium,203.0.113.17,data-web-07,m.silva,Closed - True Positive,16
+ALRT-70025,2026-10-21 22:09:00,Beaconing to rare external domain,T1071.001,High,198.51.100.47,web-db-05,admin.ops,Open,71
+ALRT-70008,2026-10-22 03:24:00,Phishing link clicked (mail gateway),T1566.002,Medium,203.0.113.236,platform-web-03,k.tanaka,Closed - False Positive,88
+ALRT-70026,2026-10-22 03:45:00,Phishing link clicked (mail gateway),T1566.002,Medium,10.20.4.153,identity-web-04,a.sharma,Closed - False Positive,38
+ALRT-70067,2026-10-22 04:10:00,Phishing link clicked (mail gateway),T1566.002,Medium,10.20.4.141,payments-api-08,svc-backup,Investigating,78
+ALRT-70077,2026-10-22 10:58:00,Phishing link clicked (mail gateway),T1566.002,Medium,10.20.4.85,web-api-11,a.sharma,Closed - False Positive,84
+ALRT-70059,2026-10-22 12:36:00,Login from new country for privileged user,T1078,High,198.51.100.100,payments-web-01,j.mueller,Open,67
+ALRT-70010,2026-10-22 14:28:00,Phishing link clicked (mail gateway),T1566.002,Medium,203.0.113.217,identity-db-08,m.silva,Closed - False Positive,33
+ALRT-70006,2026-10-22 14:58:00,Brute force: >20 failed logins from one IP in 5 min,T1110,High,203.0.113.118,data-db-10,j.mueller,Closed - True Positive,94
+ALRT-70037,2026-10-22 17:48:00,Beaconing to rare external domain,T1071.001,High,203.0.113.104,data-api-10,m.silva,Closed - False Positive,90
+ALRT-70057,2026-10-23 06:49:00,Login from new country for privileged user,T1078,High,198.51.100.139,data-web-06,admin.ops,Investigating,72
+ALRT-70030,2026-10-23 08:06:00,Phishing link clicked (mail gateway),T1566.002,Medium,203.0.113.25,identity-api-07,m.silva,Closed - False Positive,34
+ALRT-70007,2026-10-23 11:59:00,Phishing link clicked (mail gateway),T1566.002,Medium,203.0.113.169,platform-api-07,j.mueller,Closed - False Positive,25
+ALRT-70066,2026-10-23 15:35:00,Phishing link clicked (mail gateway),T1566.002,Medium,203.0.113.61,data-db-05,k.tanaka,Investigating,35

@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 1010" width="1280" height="1010" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+  </marker>
+  <style>
+    .t { text-anchor: middle; font-weight: 600; fill: #111827; }
+    .s { text-anchor: middle; font-size: 12px; fill: #374151; }
+    .h { text-anchor: middle; font-size: 12px; font-weight: 700; letter-spacing: 1px; fill: #6b7280; }
+    .hs { text-anchor: start; font-size: 12px; font-weight: 700; letter-spacing: 1px; fill: #6b7280; }
+    .ls { text-anchor: start; font-size: 12px; fill: #374151; }
+    .l { text-anchor: middle; font-size: 11.5px; fill: #374151; font-style: italic; }
+  </style>
+</defs>
+<rect width="1280" height="1010" fill="#ffffff"/>
+<text x="640.0" y="34" class="t" font-size="22">Sentinel Ops RAG Platform — Architecture</text>
+<rect x="20" y="52" width="1240" height="840" rx="12" fill="none" stroke="#9ca3af" stroke-dasharray="8,6"/>
+<text x="36" y="72" class="hs">LOCAL MACHINE (no Docker, no servers)</text>
+<rect x="40" y="86" width="150" height="60" rx="8" fill="#eef2ff" stroke="#4f46e5" stroke-width="1.5"/>
+<text x="115.0" y="105" class="t" font-size="14">User</text>
+<text x="115.0" y="122" class="s">browser</text>
+<rect x="240" y="86" width="1000" height="60" rx="8" fill="#eef2ff" stroke="#4f46e5" stroke-width="1.5"/>
+<text x="740.0" y="105" class="t" font-size="14">Web UI + REST API  (FastAPI · Jinja · HTMX)</text>
+<text x="740.0" y="122" class="s">Ask with history  ·  Documents  ·  Settings  ·  light / dark themes  ·  /api/* + OpenAPI docs</text>
+<path d="M190,116 L240,116" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="330" y="176" class="h">INGESTION PATH (Tasks 3-5, 9)</text>
+<text x="950" y="176" class="h">QUERY PATH (Tasks 6-9)</text>
+<rect x="50" y="190" width="560" height="46" rx="8" fill="#fdecec" stroke="#dc2626" stroke-width="1.5"/>
+<text x="330.0" y="209" class="t" font-size="14">1  File-type guardrail</text>
+<text x="330.0" y="226" class="s">allow-list · magic bytes · macro / zip-bomb / double-extension · size</text>
+<rect x="50" y="256" width="560" height="46" rx="8" fill="#e8f1fb" stroke="#2563eb" stroke-width="1.5"/>
+<text x="330.0" y="275" class="t" font-size="14">2  Quarantine staging</text>
+<text x="330.0" y="292" class="s">data/uploads/.staging — nothing reaches the index unscreened</text>
+<rect x="50" y="322" width="560" height="46" rx="8" fill="#e8f1fb" stroke="#2563eb" stroke-width="1.5"/>
+<text x="330.0" y="341" class="t" font-size="14">3  Parse (loaders)</text>
+<text x="330.0" y="358" class="s">PDF · DOCX · TXT · MD · LOG · CSV · XLSX · JSON · YAML</text>
+<rect x="50" y="388" width="560" height="46" rx="8" fill="#fdecec" stroke="#dc2626" stroke-width="1.5"/>
+<text x="330.0" y="407" class="t" font-size="14">4  Content scan</text>
+<text x="330.0" y="424" class="s">secrets (keys, tokens, passwords) · prompt injection · duplicates</text>
+<rect x="50" y="454" width="560" height="46" rx="8" fill="#fdecec" stroke="#dc2626" stroke-width="1.5"/>
+<text x="330.0" y="473" class="t" font-size="14">5  Domain relevance</text>
+<text x="330.0" y="490" class="s">local embedding margin vs off-topic  →  fast LLM only if borderline</text>
+<path d="M330.0,236 L330.0,256" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M330.0,302 L330.0,322" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M330.0,368 L330.0,388" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M330.0,434 L330.0,454" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M330.0,500 L330.0,524" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<rect x="50" y="524" width="176" height="40" rx="8" fill="#e7f6ec" stroke="#16a34a" stroke-width="1.5"/>
+<text x="138.0" y="549.0" class="t" font-size="14">Accepted</text>
+<rect x="242" y="524" width="176" height="40" rx="8" fill="#fff6e0" stroke="#d97706" stroke-width="1.5"/>
+<text x="330.0" y="549.0" class="t" font-size="14">Needs review</text>
+<rect x="434" y="524" width="176" height="40" rx="8" fill="#fdecec" stroke="#dc2626" stroke-width="1.5"/>
+<text x="522.0" y="549.0" class="t" font-size="14">Rejected + reason</text>
+<path d="M330,564 L330,584 L138,584 L138,604" fill="none" stroke="#d97706" stroke-width="1.6" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+<text x="250" y="580" class="l">"Ingest anyway"</text>
+<path d="M138,564 L138,604" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<rect x="50" y="604" width="560" height="46" rx="8" fill="#e8f1fb" stroke="#2563eb" stroke-width="1.5"/>
+<text x="330.0" y="623" class="t" font-size="14">6  Chunk · redact secrets · tag untrusted text</text>
+<text x="330.0" y="640" class="s">promoted to data/uploads/  →  recursive splitter, table row-groups</text>
+<rect x="50" y="670" width="270" height="46" rx="8" fill="#e8f1fb" stroke="#2563eb" stroke-width="1.5"/>
+<text x="185.0" y="689" class="t" font-size="14">7  Embed</text>
+<text x="185.0" y="706" class="s">dense bge-small + sparse BM25</text>
+<rect x="340" y="670" width="270" height="46" rx="8" fill="#e8f1fb" stroke="#2563eb" stroke-width="1.5"/>
+<text x="475.0" y="689" class="t" font-size="14">7  Load tables</text>
+<text x="475.0" y="706" class="s">CSV / Excel sheets → DuckDB</text>
+<path d="M185,650 L185,670" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M520,650 L520,670" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<rect x="670" y="190" width="560" height="46" rx="8" fill="#fdecec" stroke="#dc2626" stroke-width="1.5"/>
+<text x="950.0" y="209" class="t" font-size="14">Input guard</text>
+<text x="950.0" y="226" class="s">override / prompt-extraction attempts · secrets masked · length</text>
+<rect x="670" y="256" width="560" height="46" rx="8" fill="#f3edfc" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="950.0" y="275" class="t" font-size="14">Supervisor agent  (fast LLM)</text>
+<text x="950.0" y="292" class="s">intent · standalone question · plan of specialists (registry)</text>
+<rect x="670" y="322" width="270" height="46" rx="8" fill="#f3edfc" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="805.0" y="341" class="t" font-size="14">Document Researcher</text>
+<text x="805.0" y="358" class="s">hybrid search tool → rerank → ID pinning</text>
+<rect x="960" y="322" width="270" height="46" rx="8" fill="#f3edfc" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="1095.0" y="341" class="t" font-size="14">Data Analyst  (tool agent)</text>
+<text x="1095.0" y="358" class="s">list_tables · describe_table · run_sql</text>
+<rect x="670" y="388" width="270" height="46" rx="8" fill="#f3edfc" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="805.0" y="407" class="t" font-size="14">Grade passages  (fast LLM)</text>
+<text x="805.0" y="424" class="s">is the evidence sufficient?</text>
+<rect x="670" y="454" width="270" height="46" rx="8" fill="#f3edfc" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="805.0" y="473" class="t" font-size="14">Rewrite query</text>
+<text x="805.0" y="490" class="s">bounded retries</text>
+<rect x="960" y="388" width="270" height="46" rx="8" fill="#fdecec" stroke="#dc2626" stroke-width="1.5"/>
+<text x="1095.0" y="407" class="t" font-size="14">DuckDB sandbox</text>
+<text x="1095.0" y="424" class="s">SELECT-only · no file/network</text>
+<rect x="670" y="524" width="560" height="46" rx="8" fill="#f3edfc" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="950.0" y="543" class="t" font-size="14">Answer Writer  (strong LLM)</text>
+<text x="950.0" y="560" class="s">only from findings · cites [S#] passages and [T#] query results</text>
+<rect x="670" y="590" width="560" height="46" rx="8" fill="#fdecec" stroke="#dc2626" stroke-width="1.5"/>
+<text x="950.0" y="609" class="t" font-size="14">Reviewer  (fast LLM)</text>
+<text x="950.0" y="626" class="s">every claim grounded? send back once, else caveat</text>
+<rect x="670" y="656" width="560" height="46" rx="8" fill="#fdecec" stroke="#dc2626" stroke-width="1.5"/>
+<text x="950.0" y="675" class="t" font-size="14">Output guard</text>
+<text x="950.0" y="692" class="s">secret masking · invalid citations removed · caveats</text>
+<path d="M950.0,236 L950.0,256" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M805,302 L805,322" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1095,302 L1095,322" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="950" y="315" class="l">plan</text>
+<path d="M805,368 L805,388" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M805,434 L805,454" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="868" y="448" class="l">insufficient</text>
+<path d="M670,477 L656,477 L656,345 L670,345" fill="none" stroke="#7c3aed" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M940,335 L960,335" fill="none" stroke="#7c3aed" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="950" y="378" class="l">findings</text>
+<path d="M940,411 L948,411 L948,524" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="985" y="485" class="l">sufficient</text>
+<path d="M1095,368 L1095,388" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1095,434 L1095,524" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M950.0,570 L950.0,590" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1230,613 L1248,613 L1248,547 L1230,547" fill="none" stroke="#dc2626" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M950.0,636 L950.0,656" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M1230,679 L1252,679 L1252,160 L1100,160 L1100,146" fill="none" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="1168" y="155" class="l">answer + sources</text>
+<path d="M720,146 L720,190" fill="none" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="726" y="172" class="ls">question</text>
+<path d="M560,146 L560,190" fill="none" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="566" y="172" class="ls">upload</text>
+<text x="36" y="772" class="hs">LOCAL DATA &amp; MODELS</text>
+<rect x="50" y="784" width="150" height="56" rx="8" fill="#f3f4f6" stroke="#4b5563" stroke-width="1.5"/>
+<text x="125.0" y="803" class="t" font-size="13">data/uploads/</text>
+<text x="125.0" y="820" class="s">accepted files</text>
+<rect x="215" y="784" width="200" height="56" rx="8" fill="#f3f4f6" stroke="#4b5563" stroke-width="1.5"/>
+<text x="315.0" y="803" class="t" font-size="13">Qdrant (embedded)</text>
+<text x="315.0" y="820" class="s">hybrid dense + BM25 index</text>
+<rect x="430" y="784" width="180" height="56" rx="8" fill="#f3f4f6" stroke="#4b5563" stroke-width="1.5"/>
+<text x="520.0" y="803" class="t" font-size="13">DuckDB</text>
+<text x="520.0" y="820" class="s">tables.duckdb</text>
+<rect x="670" y="784" width="270" height="56" rx="8" fill="#f3f4f6" stroke="#4b5563" stroke-width="1.5"/>
+<text x="805.0" y="803" class="t" font-size="13">FastEmbed ONNX models</text>
+<text x="805.0" y="820" class="s">bge-small · BM25 · MiniLM reranker</text>
+<rect x="960" y="784" width="270" height="56" rx="8" fill="#f3f4f6" stroke="#4b5563" stroke-width="1.5"/>
+<text x="1095.0" y="803" class="t" font-size="13">LangSmith (optional)</text>
+<text x="1095.0" y="820" class="s">tracing of every agent step</text>
+<path d="M185,716 L185,748 L300,748 L300,784" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<path d="M520,716 L520,784" fill="none" stroke="#374151" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="242" y="742" class="l">index</text>
+<path d="M400,784 L400,762 L642,762 L642,360 L670,360" fill="none" stroke="#4b5563" stroke-width="1.6" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+<path d="M560,784 L560,770 L652,770 L652,312 L1095,312 L1095,322" fill="none" stroke="#4b5563" stroke-width="1.6" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+<text x="604" y="758" class="l">read</text>
+<rect x="670" y="926" width="560" height="56" rx="8" fill="#e6f6f6" stroke="#0d9488" stroke-width="1.5"/>
+<text x="950.0" y="945" class="t" font-size="14">Google Gemini API</text>
+<text x="950.0" y="962" class="s">gemini-3.8-flash (strong)  ·  gemini-3.5-flash-lite (fast)  ·  swappable via .env</text>
+<path d="M950,926 L950,892" fill="none" stroke="#0d9488" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="960" y="914" class="ls">HTTPS: only prompts + excerpts leave</text>
+<rect x="50" y="944" width="16" height="16" rx="3" fill="#fdecec" stroke="#dc2626"/>
+<text x="72" y="957" class="ls">Guardrail</text>
+<rect x="168" y="944" width="16" height="16" rx="3" fill="#e8f1fb" stroke="#2563eb"/>
+<text x="190" y="957" class="ls">Ingestion</text>
+<rect x="286" y="944" width="16" height="16" rx="3" fill="#f3edfc" stroke="#7c3aed"/>
+<text x="308" y="957" class="ls">Agent / query</text>
+<rect x="404" y="944" width="16" height="16" rx="3" fill="#f3f4f6" stroke="#4b5563"/>
+<text x="426" y="957" class="ls">Data / model</text>
+<rect x="522" y="944" width="16" height="16" rx="3" fill="#e6f6f6" stroke="#0d9488"/>
+<text x="544" y="957" class="ls">External API</text>
+</svg>

@@ -1,0 +1,84 @@
+{% if m.role == "user" %}
+<article class="msg msg-user"><div class="bubble">{{ m.content }}</div></article>
+{% else %}
+{% set sources = m.sources or [] %}
+{% set meta = m.meta or {} %}
+<article class="msg msg-assistant">
+  <div class="avatar" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/></svg>
+  </div>
+  <div class="msg-body">
+    {% if meta.agents %}
+    <p class="answered-by">Answered by {{ meta.agents|map("agent_title")|join(" · ") }}</p>
+    {% endif %}
+    <div class="prose">{{ m.content|answer }}</div>
+
+    {% if meta.caveat %}<p class="note-warn">{{ meta.caveat }}</p>{% endif %}
+    {% if meta.notice %}<p class="note-info">{{ meta.notice }}</p>{% endif %}
+    {% for note in meta.notes or [] %}<p class="note-info">{{ note }}</p>{% endfor %}
+
+    {% for s in sources if s.featured %}
+    <figure class="featured">
+      {% include "partials/excerpt.html" %}
+      <figcaption>From <strong>{{ s.title }}</strong>{% if s.location %} · {{ s.location }}{% endif %}</figcaption>
+    </figure>
+    {% endfor %}
+
+    {% if sources %}
+    <details class="disclosure">
+      <summary>Sources <span class="count">{{ sources|length }}</span></summary>
+      <ol class="source-list">
+        {% for s in sources %}
+        <li>
+          <div class="source-head">
+            {% if s.label %}<sup class="cite{{ '' if s.cited else ' cite-muted' }}">{{ s.label }}</sup>{% endif %}
+            <strong>{{ s.title }}</strong>{% if s.location %}<span class="muted"> · {{ s.location }}</span>{% endif %}
+            {% if s.untrusted %}<span class="pill pill-warn" title="This passage contains text that tries to instruct the AI. Treat it with caution.">Caution</span>{% endif %}
+          </div>
+          {% include "partials/excerpt.html" %}
+        </li>
+        {% endfor %}
+      </ol>
+    </details>
+    {% endif %}
+
+    {% if show_technical and (sources or meta.trace) %}
+    <details class="disclosure disclosure-tech">
+      <summary>Technical details</summary>
+      {% if meta.trace %}
+      <h4 class="tech-title">How this answer was produced</h4>
+      <div class="table-wrap">
+        <table class="kv">
+          <thead><tr><th>Agent</th><th>Step</th><th>Detail</th><th class="nowrap">Time</th></tr></thead>
+          <tbody>
+          {% for t in meta.trace %}
+          <tr><td class="nowrap">{{ t.title }}</td><td>{{ t.action }}</td><td>{{ t.detail }}</td><td class="nowrap">{{ t.ms }} ms</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if meta.standalone_question %}<p class="muted small">Interpreted question: {{ meta.standalone_question }}</p>{% endif %}
+      {% endif %}
+      {% if sources %}
+      <h4 class="tech-title">Sources</h4>
+      <div class="table-wrap">
+        <table class="kv">
+          <thead><tr><th>#</th><th>From</th><th>Relevance</th><th>Search score</th><th>Chunk / SQL</th></tr></thead>
+          <tbody>
+          {% for s in sources %}
+          <tr><td>{{ s.label or ("S" ~ loop.index) }}</td>
+              <td>{% if s.technical.file %}<code>{{ s.technical.file }}</code>{% if s.location %} · {{ s.location }}{% endif %}{% else %}data query{% endif %}</td>
+              <td>{{ s.technical.relevance_score if s.technical.relevance_score is not none else "—" }}</td>
+              <td>{{ s.technical.search_score if s.technical.search_score is defined else "—" }}</td>
+              <td>{% if s.technical.sql %}<code>{{ s.technical.sql }}</code>{% else %}<code>{{ (s.technical.chunk_id or "")[:8] }}</code>{% endif %}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="muted small">Hybrid search (meaning + keywords) → reranked by a cross-encoder; exact IDs in the question are matched first.</p>
+      {% endif %}
+    </details>
+    {% endif %}
+  </div>
+</article>
+{% endif %}

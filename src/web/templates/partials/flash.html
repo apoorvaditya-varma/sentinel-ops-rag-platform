@@ -1,0 +1,22 @@
+{% set icons = {"info": "i", "warning": "!", "error": "×", "critical": "×"} %}
+<div class="flash flash-{{ error.severity }}" role="{{ 'alert' if error.severity in ('error', 'critical') else 'status' }}">
+  <span class="flash-icon" aria-hidden="true">{{ icons[error.severity] }}</span>
+  <div class="flash-body">
+    <strong>{{ error.message }}</strong>
+    {% if error.hint %}<p>{{ error.hint }}</p>{% endif %}
+    <details class="disclosure disclosure-inline">
+      <summary>Details</summary>
+      <dl class="kv-inline">
+        {% if error.detail %}<dt>What happened</dt><dd class="detail-text">{{ error.detail }}</dd>{% endif %}
+        <dt>Severity</dt><dd>{{ error.severity }}</dd>
+        <dt>Error code</dt><dd><code>{{ error.code }}</code></dd>
+        <dt>Reference</dt><dd><code>{{ error.reference }}</code> (search for it in {{ error.log_file }})</dd>
+        <dt>Request</dt><dd><code>{{ error.request_id }}</code></dd>
+        {% if error.retryable %}<dt>Retry</dt><dd>This is usually temporary. Try again in a moment.</dd>{% endif %}
+      </dl>
+    </details>
+  </div>
+  <button class="icon-btn icon-btn-small" type="button" data-action="dismiss" aria-label="Dismiss">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+</div>

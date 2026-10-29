@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Ask · {{ app_name }}{% endblock %}
+{% block body %}
+<div class="layout">
+  <aside class="sidebar" id="sidebar" aria-label="Conversations">
+    <a class="btn btn-primary btn-block" href="/">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> New chat
+    </a>
+    <a class="btn btn-block" href="/documents">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg> Upload documents
+    </a>
+    <h2 class="sidebar-title">History</h2>
+    <div class="history" id="history">{% include "partials/history.html" %}</div>
+  </aside>
+  <div class="sidebar-backdrop" data-action="toggle-sidebar"></div>
+
+  <main class="chat">
+    <div class="messages" id="messages">
+      {% if not messages %}
+        {% include "partials/welcome.html" %}
+      {% else %}
+        {% for m in messages %}{% include "partials/message.html" %}{% endfor %}
+      {% endif %}
+    </div>
+
+    <form class="composer" id="composer"
+          hx-post="/ask" hx-target="#messages" hx-swap="beforeend"
+          hx-indicator="#thinking" hx-disabled-elt="find textarea, find button[type=submit]">
+      <input type="hidden" name="conversation_id" id="conversation-id" value="{{ conversation_id or '' }}">
+      <div id="thinking" class="thinking htmx-indicator" role="status">
+        <span class="dots"><i></i><i></i><i></i></span> Searching your documents…
+      </div>
+      <div class="composer-box">
+        <label class="visually-hidden" for="question">Your question</label>
+        <textarea id="question" name="question" rows="1" maxlength="2000" required
+                  placeholder="Ask a question about your documents…"></textarea>
+        <button class="send" type="submit" aria-label="Send">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+      {% if documents %}
+      <details class="scope">
+        <summary>Search in: <span data-scope-label>all documents</span></summary>
+        <div class="scope-list">
+          {% for d in documents %}
+          <label><input type="checkbox" name="scope" value="{{ d.source }}"> {{ d.title }}</label>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
+    </form>
+  </main>
+</div>
+{% endblock %}

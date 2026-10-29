@@ -1,0 +1,29 @@
+POSTMORTEM: INC-2041 - Payment API outage
+Severity: SEV1 | Date: 2026-10-14 | Duration: 47 minutes (09:12-09:59 UTC)
+Incident Commander: R. Okafor | Status: Published 2026-10-17
+
+Summary
+Card payments failed for 47 minutes. About 38 percent of checkout attempts returned HTTP 503.
+
+Root cause
+payment-api version 2.14.0, deployed at 08:55 UTC (deploy DEP-1187), reduced the database
+connection pool from 50 to 5 because a staging value was committed to the production Helm values
+file. Under the morning traffic peak the pool was exhausted, requests queued and timed out, and
+pods were restarted by failing liveness probes, producing CrashLoopBackOff.
+
+Timeline (UTC)
+08:55 DEP-1187 deploys payment-api 2.14.0 to production.
+09:12 Error-rate alert fires; on-call acknowledges.
+09:20 SEV1 declared, IC assigned, status page updated.
+09:41 Rollback to 2.13.2 started (DEP-1189).
+09:59 Error rate back to baseline; incident resolved.
+
+Contributing factors
+- No automated diff check between staging and production Helm values.
+- Canary stage was skipped because the change was labelled "config only".
+- The crashloop runbook was followed, but the rollback decision took 21 minutes.
+
+Action items
+1. Add a CI policy check that blocks pool sizes below 20 in production values. Owner: payments. Due 2026-10-31.
+2. Make canary mandatory for all production deploys including config changes. Owner: platform. Due 2026-11-07.
+3. Add "roll back first, investigate second" guidance to the crashloop runbook. Owner: platform. Due 2026-10-24.

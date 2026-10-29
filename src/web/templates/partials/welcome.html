@@ -1,0 +1,27 @@
+<section class="welcome" id="welcome">
+  <svg class="welcome-logo" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+  <h1>What would you like to know?</h1>
+  <p class="muted">Ask about runbooks, incidents, security policies, cloud and network changes, alerts or scan reports.
+     Answers come only from the documents you've added{% if ai_enabled() %}, with sources for every fact{% endif %}.</p>
+  {% if documents %}
+  <div class="starters">
+    {% for q in starters %}
+    <button class="chip" type="button"
+            hx-post="/ask" hx-vals='{{ {"question": q}|tojson }}' hx-include="#conversation-id"
+            hx-target="#messages" hx-swap="beforeend" hx-indicator="#thinking">{{ q }}</button>
+    {% endfor %}
+  </div>
+  <p class="welcome-upload muted small">
+    Searching {{ documents|length }} document{{ "s" if documents|length != 1 }}.
+    <a href="/documents">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+      Upload more documents
+    </a>
+  </p>
+  {% else %}
+  <div class="notice">
+    <strong>No documents yet.</strong> Add a few documents first, or try the samples.
+    <a class="btn btn-primary btn-small" href="/documents">Go to Documents</a>
+  </div>
+  {% endif %}
+</section>

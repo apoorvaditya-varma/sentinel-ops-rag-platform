@@ -1,0 +1,22 @@
+RUNBOOK: Kubernetes pod in CrashLoopBackOff
+Owner: platform team | Last reviewed: 2026-09-12
+
+Symptoms
+- kubectl get pods shows STATUS CrashLoopBackOff and a rising RESTARTS count.
+- Alert "KubePodCrashLooping" fires after 3 restarts within 10 minutes.
+
+Diagnosis
+1. kubectl describe pod <pod> -n <namespace>  -> check Events, Last State, Exit Code.
+2. kubectl logs <pod> -n <namespace> --previous  -> logs from the crashed container.
+3. Exit code 137 = OOMKilled: compare memory usage to resources.limits.memory.
+4. Exit code 1 or 2 = application error: usually bad config, missing secret or failed migration.
+5. Check whether a deployment happened in the last hour: kubectl rollout history deploy/<name>.
+
+Remediation
+- Recent deploy is the cause: kubectl rollout undo deploy/<name> -n <namespace>, then open an incident.
+- OOMKilled: raise the memory limit by at most 50 percent via the Helm values file, never by kubectl edit.
+- Missing secret: confirm the ExternalSecret synced from the vault (kubectl get externalsecret).
+- Liveness probe too aggressive: increase initialDelaySeconds; do not remove the probe.
+
+Escalation
+If not resolved within 30 minutes on a customer-facing service, declare SEV2 and page the IC.

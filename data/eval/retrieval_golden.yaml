@@ -1,0 +1,79 @@
+# Retrieval golden set over data/sample_docs.
+# A query counts as a hit at rank k when one of the top-k chunks contains
+# `answer` (case- and whitespace-insensitive), i.e. the passage that actually
+# answers the question was retrieved, not just the right file.
+# `kind`: paraphrase = wording differs from the document; exact = relies on an
+# identifier (CVE, deploy ID, technique ID) that dense embeddings tend to blur.
+
+- query: How quickly must critical vulnerabilities on internet-facing systems be fixed?
+  answer: "Internet-facing systems: 72 hours"
+  kind: paraphrase
+- query: What is the deadline for remediating high severity findings?
+  answer: "High (CVSS 7.0-8.9): 30 calendar days"
+  kind: paraphrase
+- query: Can administrators use text message codes for two-factor login?
+  answer: "SMS and voice one-time codes are not permitted for administrators"
+  kind: paraphrase
+- query: How long do we keep security logs in the SIEM?
+  answer: "Log retention is 365 days in the SIEM"
+  kind: paraphrase
+- query: How fast must access be removed when an employee leaves?
+  answer: "revoked within 4 hours of HR notification"
+  kind: paraphrase
+- query: What data is classified as restricted?
+  answer: "Restricted data includes cardholder data"
+  kind: paraphrase
+- query: What severity is a confirmed data breach?
+  answer: "SEV1 - Customer-facing outage or confirmed data breach"
+  kind: paraphrase
+- query: Which framework does our incident response process follow?
+  answer: "NIST SP 800-61"
+  kind: paraphrase
+- query: Who must join an incident when credentials may have been compromised?
+  answer: "Security Lead: mandatory for any incident involving possible data exposure or credential compromise"
+  kind: paraphrase
+- query: How often do we send status updates during a SEV1?
+  answer: "every 30 minutes for SEV1"
+  kind: paraphrase
+- query: When does a postmortem have to be published?
+  answer: "published within 5 business days"
+  kind: paraphrase
+- query: My container was OOMKilled, what should I compare?
+  answer: "Exit code 137 = OOMKilled"
+  kind: paraphrase
+- query: How do I undo a bad Kubernetes rollout?
+  answer: "kubectl rollout undo deploy"
+  kind: paraphrase
+- query: When should a crash-looping customer-facing service be escalated?
+  answer: "not resolved within 30 minutes on a customer-facing service, declare SEV2"
+  kind: paraphrase
+- query: What was the root cause of the payment outage?
+  answer: "reduced the database connection pool from 50 to 5"
+  kind: paraphrase
+- query: How long did the checkout failure last?
+  answer: "Duration: 47 minutes"
+  kind: paraphrase
+- query: Who was the incident commander for the payment API outage?
+  answer: "Incident Commander: R. Okafor"
+  kind: paraphrase
+- query: After an AWS key leak, what suspicious activity should we look for?
+  answer: "EC2 instances in unused regions (crypto mining)"
+  kind: paraphrase
+- query: Is rewriting git history enough after leaking a secret?
+  answer: "history rewriting alone is not remediation"
+  kind: paraphrase
+- query: Which hosts are affected by CVE-2024-3094?
+  answer: "CVE-2024-3094"
+  kind: exact
+- query: Show alerts for MITRE technique T1486
+  answer: "T1486"
+  kind: exact
+- query: Details of deployment DEP-1187
+  answer: "deploy_id: DEP-1187"
+  kind: exact
+- query: Which version was payment-api rolled back to?
+  answer: "2.13.2"
+  kind: exact
+- query: Alerts from source IP 203.0.113.61
+  answer: "203.0.113.61"
+  kind: exact

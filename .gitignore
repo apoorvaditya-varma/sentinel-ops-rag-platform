@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Environment (never ship secrets or the virtualenv)
+.venv/
+venv/
+.env
+
+# Runtime data
+data/uploads/*
+!data/uploads/.gitkeep
+data/qdrant/*
+!data/qdrant/.gitkeep
+data/tables.duckdb*
+data/app.db*
+logs/
+.cache/
+
+# Build artefacts
+dist/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+data/eval/results/

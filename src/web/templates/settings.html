@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Settings · {{ app_name }}{% endblock %}
+{% block body %}
+<main class="page">
+  <header class="page-head">
+    <h1>Settings</h1>
+  </header>
+
+  <section class="card">
+    <h2>Appearance</h2>
+    <div class="segmented" role="radiogroup" aria-label="Theme">
+      <label><input type="radio" name="theme" value="system" data-theme-choice> System</label>
+      <label><input type="radio" name="theme" value="light" data-theme-choice> Light</label>
+      <label><input type="radio" name="theme" value="dark" data-theme-choice> Dark</label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Answers</h2>
+    <label class="switch-row">
+      <input type="checkbox" name="show_technical" {% if show_technical %}checked{% endif %}
+             hx-post="/settings/technical" hx-trigger="change" hx-target="#technical-saved"
+             hx-vals='js:{show_technical: event.target.checked ? "on" : "off"}'>
+      <span class="switch" aria-hidden="true"></span>
+      <span>Show a <em>Technical details</em> section under answers (scores, file names, passage IDs)</span>
+    </label>
+    <span id="technical-saved" class="muted small"></span>
+  </section>
+
+  <section class="card" id="ai">
+    <h2>AI answers</h2>
+    {% if not missing_keys %}
+    <p><span class="pill pill-ok">On</span> Answers are written by AI from your documents.</p>
+    {% else %}
+    <p><span class="pill pill-muted">Off</span> You'll see the most relevant passages from your documents instead of a written answer.</p>
+    <p class="muted small">To turn AI answers on, add a Google Gemini API key to the <code>.env</code> file
+      (<code>GOOGLE_API_KEY=…</code>) and restart the app. See docs/SETUP.md.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Your data</h2>
+    <p class="muted">{{ counts.documents }} document{{ 's' if counts.documents != 1 }} · {{ counts.conversations }} conversation{{ 's' if counts.conversations != 1 }}. Everything is stored on this computer.</p>
+    <div class="actions">
+      <button class="btn btn-danger" hx-post="/settings/clear-history" hx-target="#data-saved"
+              hx-confirm="Delete all conversations? This can't be undone.">Delete chat history</button>
+      <button class="btn" hx-post="/settings/clear-uploads" hx-target="#data-saved"
+              hx-confirm="Delete the upload history list? Your documents stay.">Delete upload history</button>
+      <span id="data-saved" class="muted small"></span>
+    </div>
+  </section>
+
+  <details class="card disclosure disclosure-card">
+    <summary>System details</summary>
+    <div class="table-wrap">
+      <table class="kv">
+        <tr><th colspan="2">AI models</th></tr>
+        <tr><td>Answer model</td><td><code>{{ settings.llm_model }}</code></td></tr>
+        <tr><td>Fast model (routing, checks)</td><td><code>{{ settings.llm_fast_model }}</code></td></tr>
+        <tr><td>API key</td><td>{{ "set" if not missing_keys else "missing: " ~ missing_keys|join(", ") }}</td></tr>
+        <tr><th colspan="2">Search (runs locally)</th></tr>
+        <tr><td>Embedding model</td><td><code>{{ settings.embedding_model }}</code></td></tr>
+        <tr><td>Keyword model</td><td><code>{{ settings.sparse_model }}</code></td></tr>
+        <tr><td>Reranker</td><td><code>{{ settings.reranker_model }}</code></td></tr>
+        <tr><td>Passage size / overlap</td><td>{{ settings.chunk_size }} / {{ settings.chunk_overlap }} characters</td></tr>
+        <tr><td>Candidates / passages used</td><td>{{ settings.fetch_k }} / {{ settings.top_k }}</td></tr>
+        <tr><th colspan="2">Upload checks</th></tr>
+        <tr><td>Max file size / PDF pages</td><td>{{ settings.max_upload_mb }} MB / {{ settings.max_pdf_pages }}</td></tr>
+        <tr><td>Topic accept / reject margin</td><td>{{ settings.relevance_accept_margin }} / {{ settings.relevance_reject_margin }}</td></tr>
+        <tr><th colspan="2">Logging</th></tr>
+        <tr><td>Level / format</td><td>{{ settings.log_level }} / {{ settings.log_format }}</td></tr>
+        <tr><td>Rotation</td><td>{% if settings.log_rotation == "size" %}every {{ settings.log_max_mb }} MB{% elif settings.log_rotation == "time" %}every {{ settings.log_rotate_when }}{% else %}off{% endif %}, keep {{ settings.log_backup_count }} files</td></tr>
+        <tr><td>Log folder</td><td><code>{{ settings.log_dir }}</code></td></tr>
+        <tr><th colspan="2">Storage</th></tr>
+        <tr><td>Documents</td><td><code>{{ settings.upload_dir }}</code></td></tr>
+        <tr><td>Search index</td><td><code>{{ settings.qdrant_dir }}</code></td></tr>
+        <tr><td>Data tables</td><td><code>{{ settings.tables_db }}</code></td></tr>
+        <tr><td>History</td><td><code>{{ settings.history_db }}</code></td></tr>
+        <tr><td>API docs</td><td><a href="/api/docs">/api/docs</a></td></tr>
+      </table>
+    </div>
+  </details>
+
+  <details class="card disclosure disclosure-card">
+    <summary>Recent problems <span class="count">{{ recent_errors|length }}</span></summary>
+    {% if recent_errors %}
+    <pre class="log">{% for line in recent_errors %}{{ line }}
+{% endfor %}</pre>
+    <p class="muted small">From <code>logs/errors.log</code>. Secrets are masked before anything is written to logs.</p>
+    {% else %}
+    <p class="muted">No warnings or errors logged.</p>
+    {% endif %}
+  </details>
+</main>
+{% endblock %}

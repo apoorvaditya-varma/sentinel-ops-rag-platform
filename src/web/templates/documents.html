@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Documents · {{ app_name }}{% endblock %}
+{% block body %}
+<main class="page">
+  <header class="page-head">
+    <h1>Documents</h1>
+    <p class="muted">Add the documents you want to ask questions about. Every file is checked for safety and
+      relevance before it's added.</p>
+  </header>
+
+  <section class="card">
+    <form id="upload-form" hx-post="/documents/upload" hx-encoding="multipart/form-data"
+          hx-target="#doc-area" hx-swap="innerHTML" hx-indicator="#upload-busy"
+          hx-disabled-elt="find button">
+      <label class="dropzone" for="file-input" data-dropzone>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+        <span><strong>Choose files</strong> or drag them here</span>
+        <span class="muted small">PDF, Word, text, spreadsheets, JSON, YAML or logs · up to {{ max_mb }} MB each</span>
+        <span class="file-names" data-file-names></span>
+        <input id="file-input" class="visually-hidden" type="file" name="files" multiple>
+      </label>
+      <div class="actions">
+        <button class="btn btn-primary" type="submit">Add documents</button>
+        <button class="btn" type="button" hx-post="/documents/samples" hx-target="#doc-area"
+                hx-swap="innerHTML" hx-indicator="#upload-busy">Try sample documents</button>
+        <span id="upload-busy" class="htmx-indicator busy"><span class="spinner"></span> Checking and adding…</span>
+      </div>
+    </form>
+
+    <details class="disclosure">
+      <summary>What can I add?</summary>
+      <div class="help-grid">
+        <div>
+          <h3>Topics</h3>
+          <ul class="chips">{% for d in domains %}<li class="chip chip-static">{{ d.label }}</li>{% endfor %}</ul>
+          <p class="muted small">Documents about other subjects (HR, sales, finance, etc.) are not added.</p>
+        </div>
+        <div>
+          <h3>File types</h3>
+          <table class="kv">
+            {% for ext, (kind, examples) in allowed_types.items() %}
+            <tr><td><code>{{ ext }}</code></td><td>{{ examples }}</td></tr>
+            {% endfor %}
+          </table>
+          <p class="muted small">Not accepted: old .doc/.xls (save as .docx/.xlsx), macro files, programs,
+            archives and images.</p>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <div id="doc-area">{% include "partials/documents_area.html" %}</div>
+</main>
+{% endblock %}

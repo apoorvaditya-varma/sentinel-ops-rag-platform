@@ -1,0 +1,28 @@
+{% set icon = {"ok": "✓", "warn": "?", "bad": "×"}[o.tone] %}
+<li class="outcome outcome-{{ o.tone }}">
+  <span class="outcome-icon" aria-hidden="true">{{ icon }}</span>
+  <div class="outcome-body">
+    <div class="outcome-head">
+      <strong>{{ display_name(o.filename) }}</strong>
+      <span class="pill pill-{{ o.tone }}">{{ {"added": "Added", "needs_review": "Needs your confirmation", "rejected": "Not added", "error": "Problem"}[o.status] }}</span>
+    </div>
+    <p>{{ o.message }}</p>
+    {% if o.why %}<p class="why"><span>Why:</span> {{ o.why }}</p>{% endif %}
+    {% if o.topics %}<ul class="chips">{% for t in o.topics %}<li class="chip chip-static">{{ t }}</li>{% endfor %}</ul>{% endif %}
+    {% for w in o.warnings %}<p class="note-warn">{{ w }}</p>{% endfor %}
+    {% if o.pending_id %}
+    <form class="actions" hx-post="/documents/pending/{{ o.pending_id }}" hx-target="#doc-area" hx-swap="innerHTML">
+      <button class="btn btn-primary btn-small" name="decision" value="add">Add anyway</button>
+      <button class="btn btn-small" name="decision" value="discard">Don't add</button>
+    </form>
+    {% endif %}
+    {% if o.technical %}
+    <details class="disclosure disclosure-inline">
+      <summary>Details</summary>
+      <dl class="kv-inline">
+        {% for k, v in o.technical.items() %}<dt>{{ k|replace("_", " ")|capitalize }}</dt><dd>{{ v if v is not iterable or v is string else v|join(", ") }}</dd>{% endfor %}
+      </dl>
+    </details>
+    {% endif %}
+  </div>
+</li>

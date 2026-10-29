@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Problem · {{ app_name }}{% endblock %}
+{% block body %}
+<main class="page narrow">
+  <div class="error-page">
+    {% include "partials/flash.html" %}
+    <p><a class="btn" href="/">Back to start</a></p>
+  </div>
+</main>
+{% endblock %}

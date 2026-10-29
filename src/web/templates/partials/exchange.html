@@ -1,0 +1,7 @@
+{# Response to POST /ask: the new question + answer, plus out-of-band updates. #}
+{% with m = {"role": "user", "content": result.question} %}{% include "partials/message.html" %}{% endwith %}
+{% with m = {"role": "assistant", "content": result.answer, "sources": result.sources, "meta": result.meta} %}{% include "partials/message.html" %}{% endwith %}
+
+<div id="welcome" hx-swap-oob="delete"></div>
+<input type="hidden" name="conversation_id" id="conversation-id" value="{{ conversation_id }}" hx-swap-oob="true">
+<div class="history" id="history" hx-swap-oob="true">{% include "partials/history.html" %}</div>

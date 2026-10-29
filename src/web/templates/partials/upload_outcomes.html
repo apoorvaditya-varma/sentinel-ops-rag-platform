@@ -1,0 +1,8 @@
+{% set added = outcomes|selectattr("status", "equalto", "added")|list|length %}
+<section class="card results" aria-live="polite">
+  <h2>Results <span class="muted small">{{ added }} of {{ outcomes|length }} added</span></h2>
+  <ul class="outcomes">
+    {% for o in outcomes if o.status != "needs_review" %}{% include "partials/outcome.html" %}{% endfor %}
+  </ul>
+</section>
+{% include "partials/documents_area.html" %}

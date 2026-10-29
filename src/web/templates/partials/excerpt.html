@@ -1,0 +1,10 @@
+{% if s.excerpt.kind == "table" %}
+<div class="table-wrap">
+  <table class="data">
+    <thead><tr>{% for c in s.excerpt.columns %}<th>{{ c|replace("_", " ") }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for row in s.excerpt.rows %}<tr>{% for v in row %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+  </table>
+</div>
+{% else %}
+<p class="excerpt">{{ s.excerpt.text }}</p>
+{% endif %}

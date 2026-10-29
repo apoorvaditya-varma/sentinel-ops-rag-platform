@@ -1,0 +1,63 @@
+{% if pending %}
+<section class="card card-warn">
+  <h2>Waiting for your decision</h2>
+  <ul class="outcomes">{% for o in pending %}{% include "partials/outcome.html" %}{% endfor %}</ul>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Your documents <span class="muted small">{{ documents|length }}</span></h2>
+  {% if documents %}
+  <ul class="doc-list">
+    {% for d in documents %}
+    <li class="doc">
+      <span class="doc-icon" aria-hidden="true">{{ d.source.rsplit(".", 1)[-1]|upper }}</span>
+      <div class="doc-body">
+        <strong>{{ d.title }}</strong>
+        <span class="muted small">{{ d.kind }}{% if d.added_at %} · added {{ d.added_at|local_time }}{% endif %}</span>
+        {% if d.topics %}<ul class="chips">{% for t in d.topics %}<li class="chip chip-static">{{ t }}</li>{% endfor %}</ul>{% endif %}
+        {% for w in d.warnings %}<p class="note-warn">{{ w }}</p>{% endfor %}
+        <details class="disclosure disclosure-inline">
+          <summary>Details</summary>
+          <dl class="kv-inline">
+            <dt>File</dt><dd><code>{{ d.technical.file }}</code></dd>
+            <dt>Searchable passages</dt><dd>{{ d.technical.chunks }}</dd>
+            {% if d.technical.tables %}<dt>Data tables</dt><dd>{% for t in d.technical.tables %}<code>{{ t }}</code> {% endfor %}</dd>{% endif %}
+          </dl>
+        </details>
+      </div>
+      <form hx-post="/documents/remove" hx-target="#doc-area" hx-swap="innerHTML"
+            hx-confirm="Remove “{{ d.title }}”? It will no longer be used for answers.">
+        <input type="hidden" name="source" value="{{ d.source }}">
+        <button class="btn btn-small btn-ghost" type="submit">Remove</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No documents yet. Add your own above or click <em>Try sample documents</em>.</p>
+  {% endif %}
+</section>
+
+<details class="card disclosure disclosure-card">
+  <summary>Upload history <span class="count">{{ uploads|length }}</span></summary>
+  {% if uploads %}
+  <div class="table-wrap">
+    <table class="kv">
+      <thead><tr><th>When</th><th>File</th><th>Result</th><th>Note</th></tr></thead>
+      <tbody>
+      {% for u in uploads %}
+      <tr>
+        <td class="nowrap">{{ u.created_at|local_time }}</td>
+        <td>{{ display_name(u.filename) }}</td>
+        <td><span class="pill pill-{{ {'added': 'ok', 'removed': 'muted', 'needs_review': 'warn'}.get(u.outcome, 'bad') }}">{{ u.outcome|replace("_", " ") }}</span></td>
+        <td>{{ u.reason }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">Nothing uploaded yet.</p>
+  {% endif %}
+</details>
