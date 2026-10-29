@@ -26,6 +26,20 @@ from src.web.rendering import is_htmx, render
 
 router = APIRouter(include_in_schema=False)
 
+LAST_CONVERSATION_PREF = "last_conversation"
+
+
+def remember_conversation(conversation_id: str | None) -> None:
+    get_history().set_pref(LAST_CONVERSATION_PREF, conversation_id or "")
+
+
+def last_conversation_url() -> str:
+    """Where the Ask tab goes: the conversation the user was last in, if it still exists."""
+    history = get_history()
+    conversation_id = history.get_pref(LAST_CONVERSATION_PREF, "")
+    return f"/c/{conversation_id}" if conversation_id and history.conversation_exists(conversation_id) else "/"
+
+
 STARTER_QUESTIONS = [
     "What is the patch deadline for critical vulnerabilities?",
     "What should I do if an AWS access key is leaked?",
@@ -52,6 +66,7 @@ def _chat_context(conversation_id: str | None) -> dict:
 
 @router.get("/", response_class=HTMLResponse)
 def ask_page(request: Request):
+    remember_conversation(None)  # "New chat": the Ask tab now starts fresh until a question is asked
     return render(request, "ask.html", page="ask", **_chat_context(None))
 
 
@@ -59,6 +74,7 @@ def ask_page(request: Request):
 def conversation_page(request: Request, conversation_id: str):
     if not get_history().conversation_exists(conversation_id):
         return RedirectResponse("/", status_code=303)
+    remember_conversation(conversation_id)
     return render(request, "ask.html", page="ask", **_chat_context(conversation_id))
 
 
@@ -77,6 +93,7 @@ async def ask_cancellable(request: Request, question: str, conversation_id: str 
 async def ask(request: Request, question: str = Form(""), conversation_id: str = Form(""),
               scope: list[str] = Form(default_factory=list)):
     result = await ask_cancellable(request, question, conversation_id or None, scope)
+    remember_conversation(result.conversation_id)
     response = render(
         request, "partials/exchange.html",
         result=result, history=history_groups(get_history().conversations()),
@@ -90,6 +107,8 @@ async def ask(request: Request, question: str = Form(""), conversation_id: str =
 @router.delete("/c/{conversation_id}", response_class=HTMLResponse)
 def delete_conversation(request: Request, conversation_id: str, current: str = ""):
     get_history().delete_conversation(conversation_id)
+    if get_history().get_pref(LAST_CONVERSATION_PREF, "") == conversation_id:
+        remember_conversation(None)
     if current == conversation_id:
         response = HTMLResponse("")
         response.headers["HX-Redirect"] = "/"

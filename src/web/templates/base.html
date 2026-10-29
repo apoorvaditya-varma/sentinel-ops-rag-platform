@@ -35,7 +35,7 @@
       <span>{{ app_name }}</span>
     </a>
     <nav class="tabs" aria-label="Main">
-      <a href="/" {% if page == "ask" %}aria-current="page"{% endif %}>Ask</a>
+      <a href="{{ ask_url() }}" {% if page == "ask" %}aria-current="page"{% endif %}>Ask</a>
       <a href="/documents" {% if page == "documents" %}aria-current="page"{% endif %}>Documents</a>
       <a href="/settings" {% if page == "settings" %}aria-current="page"{% endif %}>Settings</a>
     </nav>

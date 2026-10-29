@@ -81,6 +81,16 @@ def test_ask_creates_conversation_and_shows_featured_passage(client):
     assert "How quickly must critical" in page  # sidebar title + message
 
 
+def test_ask_tab_returns_to_the_current_conversation(client):
+    """Ask a question, visit Settings, click Ask: the same conversation opens (not a new chat)."""
+    url = client.post("/ask", data={"question": "What is the patch SLA for critical vulnerabilities?"}, headers=HTMX).headers["HX-Push-Url"]
+    settings_page = client.get("/settings").text
+    assert f'href="{url}"' in settings_page and ">Ask</a>" in settings_page
+    assert "patch SLA" in client.get(url).text
+    client.get("/")  # New chat: the Ask tab starts fresh again
+    assert 'href="/" aria-current="page">Ask</a>' in client.get("/").text
+
+
 def test_technical_details_toggle(client):
     client.post("/settings/technical", data={"show_technical": "off"})
     assert "Technical details" not in client.post("/ask", data={"question": "leaked AWS key"}, headers=HTMX).text

@@ -66,7 +66,7 @@ progresses, and a **Stop** button; stopping cancels the agents on the server so 
 
 | Page | What you can do |
 |---|---|
-| **Ask** (home) | Chat about your documents. Starter questions appear on an empty chat, and **Upload documents** links in the sidebar and on the welcome screen lead to the Documents page. Answers show "Answered by …" with the time taken and citation badges; **Sources** and **Technical details** (agent trace, scores) are collapsed underneath. While a question runs you see elapsed seconds, a changing status and a **Stop** button. Past conversations are listed in the **History** sidebar (Today / Yesterday / Previous 7 days / Older) and can be reopened or deleted. You can also limit the search to selected documents. |
+| **Ask** (home) | Chat about your documents. Starter questions appear on an empty chat, and **Upload documents** links in the sidebar and on the welcome screen lead to the Documents page. Answers show "Answered by …" with the time taken and citation badges; **Sources** and **Technical details** (agent trace, scores) are collapsed underneath. While a question runs you see elapsed seconds, a changing status and a **Stop** button. Past conversations are listed in the **History** sidebar (Today / Yesterday / Previous 7 days / Older) and can be reopened or deleted; the **Ask** tab returns to the conversation you were last in, and **New chat** starts a fresh one. You can also limit the search to selected documents. |
 | **Documents** | Drag and drop files or **Try sample documents**. Each file gets a plain-language result: *Added*, *Not added* with a **Why:** line naming the check that failed (file type, duplicate, readability or topic) and the cause or *Needs your confirmation* (choose *Add anyway* or *Don't add*). The list shows friendly names, file type, topics, date added and warnings such as "passwords were hidden". **Details** and **Upload history** are collapsed. |
 | **Settings** | Appearance: theme (System / Light / Dark), font (Modern / Classic / Mono) and text size (Small / Normal / Large); the *Technical details* switch; **AI answers** on/off; **AI providers** (paste a Google, OpenAI or Anthropic key, stored in `.env`); **Models**: choose the answer model and the fast model from live-fetched lists (or type any `provider:model`), **Test models**, reset to the `.env` defaults; deleting chat or upload history. Every setting has an ⓘ tooltip explaining what it does. **System details** and **Recent problems** are collapsed. |
 
@@ -280,7 +280,7 @@ data/
   sample_docs/              Demo corpus (+ extra/, offtopic/, redteam/ for hand uploads)
   eval/                     retrieval_golden.yaml (24 questions), answer_golden.yaml (13 questions)
 docs/                       HANDBOOK.md, SETUP.md, ARCHITECTURE.md, architecture.svg
-tests/                      pytest suite (offline, 197 tests)
+tests/                      pytest suite (offline, 198 tests)
 ```
 
 ## Progress
@@ -312,7 +312,7 @@ and observability.
 ## Tests
 
 ```bash
-python -m pytest -q                       # 197 tests, offline (no API key needed), ~40 s
+python -m pytest -q                       # 198 tests, offline (no API key needed), ~40 s
 python -m src.evaluation.retrieval_eval   # retrieval benchmark (needs the sample corpus indexed)
 python -m src.evaluation.answer_eval      # answer quality, 13 golden questions (needs GOOGLE_API_KEY)
 ```

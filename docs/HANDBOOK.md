@@ -242,7 +242,7 @@ Stop the app first (the index allows one process), then:
 python -m scripts.ingest data/sample_docs        # make sure the demo corpus is indexed
 python -m src.evaluation.retrieval_eval          # retrieval benchmark, no API calls, ~1 min
 python -m src.evaluation.answer_eval             # 13 questions through the agents, uses the API
-python -m pytest -q                              # 197 offline tests
+python -m pytest -q                              # 198 offline tests
 ```
 
 Results of `answer_eval` are saved to `data/eval/results/` with the models that were in use.

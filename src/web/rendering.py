@@ -16,6 +16,12 @@ from src.agents.registry import ALL_AGENTS
 from src.web import presenters
 from src.web.services import ai_enabled
 
+
+def ask_url() -> str:
+    from src.web.pages import last_conversation_url  # late import: pages imports this module
+
+    return last_conversation_url()
+
 WEB_DIR = Path(__file__).parent
 
 @lru_cache(maxsize=64)
@@ -36,7 +42,7 @@ templates.env.filters["agent_title"] = lambda key: ALL_AGENTS[key].title if key 
 templates.env.filters["local_time"] = presenters.local_time
 templates.env.globals.update(
     app_name=get_settings().app_name, version=__version__, ai_enabled=ai_enabled,
-    display_name=presenters.display_name, asset=asset,
+    display_name=presenters.display_name, asset=asset, ask_url=ask_url,
 )
 
 
