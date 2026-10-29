@@ -52,10 +52,24 @@ OUT_OF_SCOPE_REPLY = ("I can only help with questions about your IT operations, 
                       "such as policies, runbooks, incidents, alerts and scan reports.")
 
 
+STRONG_MODEL_ATTEMPTS = 2  # then the request switches to the fast model (circuit breaker)
+
+
 @dataclass
 class Models:
     strong: BaseChatModel
     fast: BaseChatModel
+    degraded: bool = False  # set for the rest of a request once the strong model proved unavailable
+
+    def strong_or_fallback(self) -> BaseChatModel:
+        return self.fast if self.degraded else self.strong
+
+    def trip(self, exc: BaseException, action: str) -> None:
+        """Mark the strong model unavailable for this request (transient errors only)."""
+        if not classify_exception(exc).transient:
+            raise exc
+        report(exc, f"{action}: strong model unavailable, switching to fast model", log)
+        self.degraded = True
 
 
 def default_models() -> Models:
@@ -85,10 +99,20 @@ class AgentResult:
         return seen
 
 
-def _call(fn, *args):
+def _call(fn, *args, attempts: int | None = None):
     """Invoke an LLM-backed callable with retries on transient errors (rate limits, overload, timeouts)."""
     settings = get_settings()
-    return retry_transient(attempts=settings.llm_retry_attempts, base_delay=2.0)(fn)(*args)
+    return retry_transient(attempts=attempts or settings.llm_retry_attempts, base_delay=2.0)(fn)(*args)
+
+
+def _call_strong(models: Models, fn, *args):
+    """Call with the strong model; on persistent overload trip the breaker and use the fast model."""
+    if not models.degraded:
+        try:
+            return _call(fn, models.strong, *args, attempts=STRONG_MODEL_ATTEMPTS)
+        except Exception as exc:  # noqa: BLE001 - non-transient errors are re-raised by trip()
+            models.trip(exc, fn.__name__)
+    return _call(fn, models.fast, *args)
 
 
 def _trace(state: AgentState, agent: str, action: str, detail: str, started: float) -> list:
@@ -196,14 +220,26 @@ def build_graph(models: Models, tables: TableStore):
             f"- {c.document.page_content.partition(chr(10))[2][:600]}"
             for f in state.get("findings", []) if f["agent"] == "researcher" for c in f.get("chunks", [])[:3]
         ) or "(none)"
-        agent = create_agent(models.strong, make_sql_tools(tables, state.get("scope"), query_log),
-                             system_prompt=prompts.ANALYST.format(today=date.today().isoformat()))
-        try:
+        def analyse(model: BaseChatModel) -> str:
+            query_log.clear()
+            agent = create_agent(model, make_sql_tools(tables, state.get("scope"), query_log),
+                                 system_prompt=prompts.ANALYST.format(today=date.today().isoformat()))
             result = agent.invoke(
                 {"messages": [HumanMessage(prompts.ANALYST_TASK.format(task=step.task, context=context))]},
                 config={"recursion_limit": settings.agent_recursion_limit},
             )
-            summary = result["messages"][-1].text.strip()
+            return result["messages"][-1].text.strip()
+
+        note = ""
+        try:
+            try:
+                summary = analyse(models.strong_or_fallback())
+            except Exception as exc:  # noqa: BLE001 - overloaded strong model: retry once with the fast model
+                if models.degraded:
+                    raise
+                models.trip(exc, "data analysis")
+                note = " (strong model unavailable, used fast model)"
+                summary = analyse(models.fast)
         except Exception as exc:  # noqa: BLE001 - the writer can still use other findings
             error = report(exc, "data analysis", log)
             summary = f"Analysis failed: {error.user_message}"
@@ -211,7 +247,7 @@ def build_graph(models: Models, tables: TableStore):
         for q in query_log:
             outcome = f"error: {q['error']}" if q.get("error") else f"{len(q['rows'])} row(s)"
             trace = _trace({"trace": trace}, "analyst", "sql", f"{q['sql']} → {outcome}", started)
-        trace = _trace({"trace": trace}, "analyst", "summary", summary[:300], started)
+        trace = _trace({"trace": trace}, "analyst", "summary", summary[:300] + note, started)
         finding: Finding = {"agent": "analyst", "task": step.task, "queries": query_log, "summary": summary,
                             "ok": any(not q.get("error") for q in query_log)}
         return {"findings": [*state.get("findings", []), finding], "step_index": state["step_index"] + 1,
@@ -226,15 +262,10 @@ def build_graph(models: Models, tables: TableStore):
         if review is not None:
             feedback = prompts.WRITER_FEEDBACK.format(feedback=review.feedback or "(none)",
                                                       claims="; ".join(review.unsupported_claims) or "(none)")
-        note = ""
-        try:
-            answer = _call(generate_answer, models.strong, state["plan"].standalone_question, sources, feedback)
-        except Exception as exc:  # noqa: BLE001 - overloaded strong model: fall back to the fast one
-            if not classify_exception(exc).transient:
-                raise
-            report(exc, "writer (strong model), falling back to fast model", log)
-            answer = _call(generate_answer, models.fast, state["plan"].standalone_question, sources, feedback)
-            note = " (strong model unavailable, used fast model)"
+        was_degraded = models.degraded
+        answer = _call_strong(models, generate_answer, state["plan"].standalone_question, sources, feedback)
+        note = " (strong model unavailable, used fast model)" if models.degraded and not was_degraded else (
+            " (fast model)" if models.degraded else "")
         answer, cited = clean_citations(answer, sources)
         attempt = state.get("write_attempts", 0) + 1
         detail = f"Wrote answer from {len(sources)} sources, cited {', '.join(cited) or 'none'}{note}"
