@@ -239,10 +239,29 @@ def test_ai_answer_rendered_with_citations_agents_and_trace(client, ai_on):
 
 
 def test_writer_failure_falls_back_to_passages(client, ai_on):
-    ai_on.setattr(services, "get_models", lambda: scripted_models(writer_error=TimeoutError("read timed out")))
+    ai_on.setattr(services, "get_models", lambda: scripted_models(writer_error=ValueError("model exploded")))
     body = client.post("/api/ask", json={"question": "What MFA do admins need?"}).json()
     assert body["mode"] == "preview" and body["sources"]
     assert "Showing the most relevant passages instead" in body["meta"]["notice"]
+
+
+def test_overloaded_strong_model_falls_back_to_fast_model(client, ai_on):
+    """A transient failure of the strong model (503/504/timeout) is retried, then the fast model writes."""
+    from langchain_core.messages import AIMessage
+
+    models = scripted_models(writer_error=TimeoutError("504 DEADLINE_EXCEEDED"))
+    fast_responder = models.fast.responder
+
+    def fast(messages, tools):
+        if not tools:  # the writer prompt has no tools bound
+            return AIMessage(content="Admins need hardware keys [S1].")
+        return fast_responder(messages, tools)
+
+    models.fast.responder = fast
+    ai_on.setattr(services, "get_models", lambda: models)
+    body = client.post("/api/ask", json={"question": "What MFA do admins need?"}).json()
+    assert body["mode"] == "answer" and "hardware keys" in body["answer"]
+    assert any("used fast model" in t["detail"] for t in body["meta"]["trace"])
 
 
 def test_blocked_question_never_reaches_a_model(client, ai_on):
