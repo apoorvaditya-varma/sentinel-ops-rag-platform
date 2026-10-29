@@ -8,8 +8,11 @@
     <svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z"/></svg>
   </div>
   <div class="msg-body">
-    {% if meta.agents %}
-    <p class="answered-by">Answered by {{ meta.agents|map("agent_title")|join(" · ") }}</p>
+    {% if meta.agents or meta.seconds %}
+    <p class="answered-by">
+      {% if meta.agents %}Answered by {{ meta.agents|map("agent_title")|join(" · ") }}{% elif meta.mode == "cancelled" %}Stopped{% else %}Found{% endif %}
+      {% if meta.seconds %} · {{ meta.seconds }} s{% endif %}
+    </p>
     {% endif %}
     <div class="prose">{{ m.content|answer }}</div>
 

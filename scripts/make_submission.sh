@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Build the LMS submission zip: source + docs + sample data, without the
-# virtualenv, caches or locally indexed data.
-#
-# The .env file (with the API key) IS included so graders can run the app
-# without their own key. Pass --no-env to leave it out (e.g. for sharing publicly).
+# Build the LMS submission zip: source + docs + sample data + the .env file
+# (so graders can run the app with the project's API key), without the
+# virtualenv, caches, logs or locally indexed data.
+# Pass --no-env to leave .env out (for sharing outside the LMS).
+# The key in .env should be revoked once grading is confirmed.
 set -euo pipefail
 
 include_env=1
@@ -33,11 +33,11 @@ zip -rq "$name/$out" "$name" \
 
 if [ "$include_env" = 0 ]; then
   zip -dq "$name/$out" "$name/.env" 2>/dev/null || true
-  echo "NOTE: .env excluded (--no-env)."
+  echo "NOTE: .env excluded (--no-env); the recipient must create their own .env."
 elif unzip -l "$name/$out" | grep -q "$name/.env$"; then
-  echo "WARNING: .env (API key) is inside the zip - share it only with the LMS/graders."
+  echo "NOTE: .env (with the API key) is inside the zip. Share it only through the LMS and revoke the key after grading."
 else
-  echo "NOTE: no .env file found; the zip has no API key."
+  echo "NOTE: no .env file exists; the zip has no API key."
 fi
 echo "Created $name/$out"
 unzip -l "$name/$out" | tail -1

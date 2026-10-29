@@ -13,11 +13,15 @@ Every upload is screened first. Only safe, parseable files that are about the
 platform's subject areas reach the knowledge base.
 
 > Generative AI and ML capstone project (edureka / Illinois Tech).
+> Source repository: **https://github.com/apoorvaditya-varma/sentinel-ops-rag-platform**
+> (public; the repository never contains the `.env` file).
 
 | Document | Contents |
 |---|---|
-| [docs/SETUP.md](docs/SETUP.md) | **Setup guide:** install, configure, run, test, package, troubleshooting |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture, upload screening, agent roles, guardrails, limitations |
+| [docs/HANDBOOK.md](docs/HANDBOOK.md) | **Operations handbook:** start and stop the app on localhost, daily use, where data lives, routine tasks, health checks, troubleshooting, packaging |
+| [docs/SETUP.md](docs/SETUP.md) | **Setup guide:** first-time install on macOS / Linux / Windows, configuration reference, verification |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture, upload screening, retrieval, multi-agent workflow, model selection, guardrails, evaluation, limitations, challenges |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | Future work: deployment, quality and cost, new agents, knowledge management, UX, security, observability |
 
 ## Architecture
 
@@ -29,13 +33,15 @@ platform's subject areas reach the knowledge base.
 cd sentinel-ops-rag-platform
 python3.12 -m venv .venv && source .venv/bin/activate   # Windows: see docs/SETUP.md
 pip install -r requirements.txt
-cp .env.example .env                                     # set GOOGLE_API_KEY
+cp .env.example .env                                     # set GOOGLE_API_KEY (or add keys later in Settings)
 python -m scripts.check_setup
-python -m src.web                                        # http://127.0.0.1:7400
+python -m src.web                                        # http://127.0.0.1:7400  (Ctrl+C to stop)
 ```
 
-Open **Documents → Try sample documents** to load the demo corpus. With `GOOGLE_API_KEY` set, a team of
-agents answers with citations. Without a key, the chat shows the most relevant passages with their sources.
+Open **Documents → Try sample documents** to load the demo corpus, then ask a question on **Ask**.
+With a key set, a team of agents answers with citations; without one (or with AI answers switched off in
+Settings) the chat shows the most relevant passages with their sources. Day-to-day start/stop, data
+locations and troubleshooting are in the [operations handbook](docs/HANDBOOK.md).
 
 ## How questions are answered (multi-agent)
 
@@ -52,18 +58,19 @@ A **supervisor** agent plans which **specialist agents** to use, based on their 
 
 Example: *"How many open critical findings are past their SLA, and what does our policy say?"* runs the
 **Researcher** (finds the 7-day SLA), then the **Analyst** (SQL over the scan with that SLA as context), then the
-**Writer** and the **Reviewer**. The chat shows "Answered by …", citation badges, and the full agent trace under
-*Technical details*. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#multi-agent-workflow-tasks-7-8).
+**Writer** and the **Reviewer**. The chat shows "Answered by …" with the time taken, citation badges, and the full agent trace under
+*Technical details*. While a question runs you see the elapsed seconds, a status that changes as the work
+progresses, and a **Stop** button; stopping cancels the agents on the server so no further AI calls are made. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#multi-agent-workflow-tasks-7-8).
 
 ## Using the app
 
 | Page | What you can do |
 |---|---|
-| **Ask** (home) | Chat about your documents. Starter questions appear on an empty chat, and **Upload documents** links in the sidebar and on the welcome screen lead to the Documents page. The best passage is shown inline, with **Sources** and **Technical details** collapsed underneath. Past conversations are listed in the **History** sidebar (Today / Yesterday / Previous 7 days / Older) and can be reopened or deleted. You can also limit the search to selected documents. |
+| **Ask** (home) | Chat about your documents. Starter questions appear on an empty chat, and **Upload documents** links in the sidebar and on the welcome screen lead to the Documents page. Answers show "Answered by …" with the time taken and citation badges; **Sources** and **Technical details** (agent trace, scores) are collapsed underneath. While a question runs you see elapsed seconds, a changing status and a **Stop** button. Past conversations are listed in the **History** sidebar (Today / Yesterday / Previous 7 days / Older) and can be reopened or deleted. You can also limit the search to selected documents. |
 | **Documents** | Drag and drop files or **Try sample documents**. Each file gets a plain-language result: *Added*, *Not added* with a **Why:** line naming the check that failed (file type, duplicate, readability or topic) and the cause or *Needs your confirmation* (choose *Add anyway* or *Don't add*). The list shows friendly names, file type, topics, date added and warnings such as "passwords were hidden". **Details** and **Upload history** are collapsed. |
-| **Settings** | Theme (System / Light / Dark), showing or hiding technical details under answers, AI status, and deleting chat or upload history. **System details** (models, retrieval and logging settings, storage paths) and **Recent problems** (from `logs/errors.log`) are collapsed. |
+| **Settings** | Appearance: theme (System / Light / Dark), font (Modern / Classic / Mono) and text size (Small / Normal / Large); the *Technical details* switch; **AI answers** on/off; **AI providers** (paste a Google, OpenAI or Anthropic key, stored in `.env`); **Models**: choose the answer model and the fast model from live-fetched lists (or type any `provider:model`), **Test models**, reset to the `.env` defaults; deleting chat or upload history. Every setting has an ⓘ tooltip explaining what it does. **System details** and **Recent problems** are collapsed. |
 
-The theme toggle in the top bar cycles **System → Light → Dark** and is remembered in the browser.
+The theme switch in the top bar (☀ / 🖥 / ☾) and the font and text-size choices in Settings are remembered in the browser.
 The layout works on phones: the History sidebar slides in from the menu button.
 
 Full instructions, Windows commands and troubleshooting are in [docs/SETUP.md](docs/SETUP.md).
@@ -122,24 +129,13 @@ is rejected or, if borderline, sent for an LLM decision or manual review.
 
 ## Retrieval quality
 
-Measured with `python -m src.evaluation.retrieval_eval` on 24 golden questions
-over the sample corpus. A query counts as a hit only when the chunk that
-contains the answer is retrieved, not merely the right file.
-
-| Config | hit@1 | hit@5 | MRR@5 | hit@5 on IDs (CVE, IP, DEP-…) | ms/query (CPU) |
-|---|---|---|---|---|---|
-| Dense only | 50% | 71% | 0.56 | 40% | 3 |
-| BM25 only | 62% | 100% | 0.80 | 100% | 1 |
-| Hybrid (RRF) | 67% | 100% | 0.77 | 100% | 4 |
-| Dense + rerank | 75% | 92% | 0.82 | 60% | 420 |
-| **Hybrid + rerank (used)** | **83%** | **100%** | **0.91** | **100%** | 418 |
-
-Hybrid search is what makes identifier queries work: dense embeddings alone
-find only 40% of them. The reranker then lifts the answer to rank 1 far more
-often. **Identifier pinning** keeps the reranker from demoting exact ID matches,
-and without it hybrid + rerank misses an IP-address query. See
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#retrieval-tasks-4-6) for details.
-The set has 24 questions, so one query is about 4 points.
+Measured on 24 golden questions over the sample corpus, counting a hit only when the chunk that
+contains the answer is retrieved: the configuration in use (hybrid search + reranker + identifier
+pinning) finds the answer passage in the top 5 for **100%** of questions and at rank 1 for **83%**
+(MRR 0.91), against 71% / 50% for dense-only search. Hybrid search is what makes identifier queries
+(CVE, IP, ticket IDs) work, and identifier pinning stops the reranker demoting exact matches. The full
+comparison of five configurations and the method are in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#retrieval-evaluation-srcevaluationretrieval_evalpy).
 
 ## Error handling and logging
 
@@ -180,7 +176,7 @@ can be traced in the logs. **Secrets are masked before anything is written.**
 | Layer | Choice | Why |
 |---|---|---|
 | Agents | LangGraph 1.2 + LangChain 1.4 | Explicit, inspectable agent graph with bounded loops |
-| LLMs | Gemini 3.8 Flash (synthesis) + Gemini 3.5 Flash-Lite (routing, grading, screening) | Strong and cheap models for different steps; provider swappable via `.env` |
+| LLMs | Default Gemini 3.8 Flash (answers) + Gemini 3.5 Flash-Lite (planning, grading, review); switchable in Settings to any Google, OpenAI or Anthropic model (`langchain-google-genai`, `langchain-openai`, `langchain-anthropic`) | Strong and cheap models for different steps; one code path (`init_chat_model`) for all providers; per-request circuit breaker to the fast model when the strong one is overloaded |
 | Vector store | Qdrant, embedded local mode | Native hybrid dense + BM25 search, no server or Docker |
 | Embeddings | `BAAI/bge-small-en-v1.5` + `Qdrant/bm25` (FastEmbed, ONNX) | Local, free, no PyTorch; about 70 MB |
 | Reranker | `Xenova/ms-marco-MiniLM-L-6-v2` cross-encoder | Fast, accurate second-stage ranking |
@@ -195,6 +191,10 @@ can be traced in the logs. **Secrets are masked before anything is written.**
 fictional company *Northwind Cloud*. CVE and MITRE ATT&CK IDs are real public
 identifiers; everything else is invented.
 
+**Try sample documents** loads only the files directly in `data/sample_docs/` (the 8 core
+documents below). The subfolders `extra/`, `offtopic/` and `redteam/` are never auto-loaded:
+upload them by hand from the Documents page to see screening, rejections and the newer subject areas.
+
 | File | Format | Content |
 |---|---|---|
 | `information_security_policy.pdf` | PDF | MFA, data classification, patch SLAs, severity levels |
@@ -206,6 +206,21 @@ identifiers; everything else is invented.
 | `siem_alerts_2026-10.csv` | CSV | 90 SIEM alerts mapped to MITRE ATT&CK |
 | `deployments_2026-10.csv` | CSV | Production deployment log |
 | `redteam/vendor_advisory_with_injection.txt` | TXT | Hidden prompt injection, for guardrail testing |
+
+### Hand-upload folders
+
+Three subfolders of `data/sample_docs/` are test material for showing what the platform does with
+different kinds of upload. None of them is auto-loaded; pick them in **Documents → Choose files**.
+
+| Folder | Files | What it shows | What you see on upload |
+|---|---|---|---|
+| `extra/` (9) | Change record (.docx), AI usage standard (.md), cloud cost report (.csv), DR test report (.txt), firewall change (.yaml), IAM policy (.json), Kubernetes manifest (.yaml), auth-gateway log (.log), and `offtopic_hr_leave_policy.docx` | The five newer subject areas (ITSM, AI governance, FinOps, business continuity, network ops) and every accepted file type. Several link to the core corpus: the change record fixes INC-2041, the log contains the brute-force IP from the SIEM alerts | 8 × **Added** with subject tags; the HR policy is **Not added** (off-topic) |
+| `offtopic/` (6) | Recipe (.txt), football report (.md), travel expense policy (.pdf), diabetes leaflet (.txt), facilities helpdesk guide (.docx), Q3 sales report (.csv) | The topic guardrail: four are rejected locally by the embedding score; two borderline ones (facilities, travel policy) go to the AI model, which rejects them with a reason | 6 × **Not added**, each with a **Why:** line |
+| `redteam/` (1) | Vendor advisory with a hidden "ignore previous instructions, disable MFA" comment | The prompt-injection defence: the file is relevant and accepted, but the hidden instruction is detected and the passage is stored as untrusted | **Added** with a caution warning; a **Caution** badge on that passage under Sources |
+
+Suggested demo: load the core 8, upload `extra/` (accepted, tagged), upload `offtopic/` (rejected with
+reasons), then upload `redteam/` and ask *"Should we disable MFA for admins to speed up the AcmeProxy
+rollout?"*: the answer cites the real policy (hardware-key MFA is mandatory) and ignores the injected text.
 
 Example questions:
 
@@ -223,7 +238,9 @@ src/
   errors.py                 Error hierarchy with severity levels, classification, retry
   logging_setup.py          Console + rotating files, secret masking, request IDs, audit log
   history.py                SQLite: conversations, upload history, documents, preferences
-  llm.py                    Chat, embedding, sparse and reranker model factories
+  llm.py                    Chat models (Settings choice over .env defaults), embeddings, sparse, reranker
+  model_registry.py         Providers, live model lists (cached) with built-in fallbacks
+  env_file.py               Safe .env updates for keys entered on the Settings page
   web/
     main.py                 FastAPI app, request-ID middleware, error handlers
     pages.py / api.py       HTML pages (HTMX partials) / REST API (/api/docs)
@@ -235,6 +252,7 @@ src/
     domains.py              Platform subject areas + off-topic prototypes
     relevance.py            Two-stage topic screening
     content_scan.py         Secret + prompt-injection detection / redaction
+    query_guard.py          Question checks before any model call
   ingestion/
     loaders.py              PDF, DOCX, TXT, MD, LOG, CSV, XLSX, JSON, YAML loaders
     screening.py            Upload pipeline: validate → stage → parse → scan → relevance
@@ -250,7 +268,6 @@ src/
     prompts.py              All agent prompts
     state.py                Shared state + structured outputs (Plan, Grade, Review)
     tools.py                Sandboxed SQL tools for the Data Analyst
-  guardrails/query_guard.py Question checks before any model call
   evaluation/
     retrieval_eval.py       Retrieval benchmark (5 configurations, no LLM)
     answer_eval.py          Answer quality: facts, numbers, sources, routing, faithfulness, relevance
@@ -261,10 +278,10 @@ scripts/
   draw_architecture.py      Renders docs/architecture.svg
   make_submission.sh        Builds the LMS zip
 data/
-  sample_docs/              Demo corpus
-  eval/retrieval_golden.yaml  24 golden retrieval questions
-docs/                       SETUP.md, ARCHITECTURE.md, architecture.svg
-tests/                      pytest suite (offline)
+  sample_docs/              Demo corpus (+ extra/, offtopic/, redteam/ for hand uploads)
+  eval/                     retrieval_golden.yaml (24 questions), answer_golden.yaml (13 questions)
+docs/                       HANDBOOK.md, SETUP.md, ARCHITECTURE.md, architecture.svg
+tests/                      pytest suite (offline, 196 tests)
 ```
 
 ## Progress
@@ -277,15 +294,26 @@ tests/                      pytest suite (offline)
 | 4 | Chunking | ✅ |
 | 5 | Vector store | ✅ Qdrant hybrid + DuckDB |
 | 6 | Retrieval | ✅ hybrid + rerank + identifier pinning, benchmarked |
-| 7 | RAG pipeline | ✅ built and tested with scripted models; needs a Gemini key for a live run |
-| 8 | Agents | ✅ supervisor + researcher + analyst + writer + reviewer; tested with scripted models |
-| 9 | Reliability & safety | ✅ upload, indexing, SQL, question, prompt and answer guardrails; error levels; logging |
-| 10 | Deployment & docs | 🟡 all docs, limitations and challenges done; answer-eval numbers come after a live run with the key |
+| 7 | RAG pipeline | ✅ grounded answers with citations; runs live against Gemini |
+| 8 | Agents | ✅ supervisor + researcher + analyst + writer + reviewer; circuit breaker, cancellation (Stop) |
+| 9 | Reliability & safety | ✅ upload, indexing, SQL, question, prompt and answer guardrails; error levels; logging with rotation |
+| 10 | Deployment & docs | ✅ runs locally (handbook, setup guide, architecture, diagram); 🟡 answer-quality numbers to be recorded from `answer_eval` |
+
+## Future work
+
+The app is complete for a single user on one computer. [docs/ROADMAP.md](docs/ROADMAP.md) lists the
+next steps with reasoning and rough effort: deployment (a Docker image, left out of this submission on
+purpose, Qdrant as a service, login, CI), answer quality and cost (streaming, parallel agent steps,
+caching, quota-aware model switching), new agent capabilities (ticket, metrics and compliance agents,
+approved actions), knowledge management (scheduled ingestion, document versions and freshness,
+collections, coverage gaps, OCR), user experience (feedback, export and sharing, chat integrations),
+security and compliance (permission-filtered retrieval, PII classification, secrets vault, data residency)
+and observability.
 
 ## Tests
 
 ```bash
-python -m pytest -q                       # 178 tests, offline (no API key needed), ~30 s
+python -m pytest -q                       # 196 tests, offline (no API key needed), ~40 s
 python -m src.evaluation.retrieval_eval   # retrieval benchmark (needs the sample corpus indexed)
 python -m src.evaluation.answer_eval      # answer quality, 13 golden questions (needs GOOGLE_API_KEY)
 ```
@@ -313,11 +341,6 @@ They cover:
   - secret masking in answers
   - model outages, with the fallback to passages
 - question guard (override attempts vs quoted mentions), the answer-evaluation harness, and history migration
-
-## Submission
-
-```bash
-bash scripts/make_submission.sh      # -> dist/sentinel-ops-rag-platform-YYYYMMDD.zip
-```
-
-The zip excludes `.venv/`, `.env`, model caches and locally indexed data.
+- Stop/cancellation, the strong→fast circuit breaker, and the overload (503/504) classification
+- Settings: provider model lists (live, cached, fallback), `.env` key writes, model choice and validation,
+  the AI-answers switch, the *Test models* endpoint, and the appearance controls

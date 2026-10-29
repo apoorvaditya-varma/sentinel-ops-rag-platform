@@ -28,7 +28,10 @@
           hx-indicator="#thinking" hx-disabled-elt="find textarea, find button[type=submit]">
       <input type="hidden" name="conversation_id" id="conversation-id" value="{{ conversation_id or '' }}">
       <div id="thinking" class="thinking htmx-indicator" role="status">
-        <span class="dots"><i></i><i></i><i></i></span> Searching your documents…
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span data-status>Searching your documents…</span>
+        <span class="elapsed" data-elapsed></span>
+        <button class="btn btn-small btn-stop" type="button" data-action="stop-question">Stop</button>
       </div>
       <div class="composer-box">
         <label class="visually-hidden" for="question">Your question</label>

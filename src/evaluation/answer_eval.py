@@ -58,6 +58,7 @@ class ItemResult:
     seconds: float = 0.0
     answer: str = ""
     notes: list[str] = field(default_factory=list)
+    error: str | None = None
 
 
 def _norm(text: str) -> str:
@@ -113,6 +114,8 @@ def evaluate_item(item: dict, models: Models, tables: TableStore, judge: bool = 
 
 
 def summarise(results: list[ItemResult]) -> dict:
+    results = [r for r in results if r.error is None]
+
     def mean(attr):
         values = [getattr(r, attr) for r in results if getattr(r, attr) is not None]
         return round(statistics.mean(float(v) for v in values), 3) if values else None
@@ -131,12 +134,35 @@ def summarise(results: list[ItemResult]) -> dict:
     }
 
 
+def _safe_evaluate(item: dict, models: Models, tables: TableStore, judge: bool) -> ItemResult:
+    """One question; a provider failure (e.g. quota) is recorded, not fatal."""
+    from src.errors import report
+
+    try:
+        return evaluate_item(item, models, tables, judge)
+    except Exception as exc:  # noqa: BLE001 - keep going with the other questions
+        error = report(exc, f"evaluating {item['question'][:40]!r}")
+        return ItemResult(item["question"], intent_ok=False, error=f"{error.code}: {error.user_message}")
+
+
 def run(models: Models | None = None, tables: TableStore | None = None, limit: int | None = None,
-        judge: bool = True) -> tuple[list[ItemResult], dict]:
+        judge: bool = True, pause: float = 0.0, done: dict[str, ItemResult] | None = None,
+        on_result=None) -> tuple[list[ItemResult], dict]:
     golden = yaml.safe_load(GOLDEN_PATH.read_text())[:limit]
     models = models or default_models()
     tables = tables or get_table_store()
-    results = [evaluate_item(item, models, tables, judge) for item in golden]
+    results = []
+    for index, item in enumerate(golden):
+        previous = (done or {}).get(item["question"])
+        if previous is not None and previous.error is None:
+            results.append(previous)
+            continue
+        if index and pause:
+            time.sleep(pause)
+        result = _safe_evaluate(item, models, tables, judge)
+        results.append(result)
+        if on_result:
+            on_result(result)
     return results, summarise(results)
 
 
@@ -144,17 +170,49 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--limit", type=int, help="evaluate only the first N questions")
     parser.add_argument("--no-judge", action="store_true", help="skip the LLM-judged metrics")
+    parser.add_argument("--pause", type=float, default=20.0,
+                        help="seconds between questions, to stay under free-tier per-minute limits (default 20)")
+    parser.add_argument("--resume", action="store_true",
+                        help="reuse successful results from the most recent run; redo only failed/missing ones")
+    parser.add_argument("--strong", help="override the answer model for this run, e.g. google_genai:gemini-3.6-flash")
+    parser.add_argument("--fast", help="override the fast model for this run")
     args = parser.parse_args()
-    if missing := get_settings().missing_api_keys():
+    if args.strong or args.fast:
+        import src.llm as llm_module
+
+        strong, fast = llm_module.effective_models()
+        chosen = (args.strong or strong, args.fast or fast)
+        llm_module.effective_models = lambda: chosen  # noqa: E731 - run-scoped override
+    done: dict[str, ItemResult] = {}
+    if args.resume:
+        previous = sorted(RESULTS_DIR.glob("answer_eval_*.json"))
+        if previous:
+            for row in json.loads(previous[-1].read_text())["results"]:
+                done[row["question"]] = ItemResult(**row)
+            print(f"Resuming from {previous[-1].name}: {sum(1 for r in done.values() if r.error is None)} already done")
+    from src.config import missing_keys_for
+    from src.llm import effective_models
+
+    if missing := missing_keys_for(effective_models()):
         print(f"Set {', '.join(missing)} in .env first: this evaluation calls the LLM.")
         return 2
 
-    results, summary = run(limit=args.limit, judge=not args.no_judge)
-    print(f"Answer evaluation - {summary['questions']} questions\n")
+    def progress(result: ItemResult) -> None:
+        state = f"ERROR {result.error}" if result.error else f"ok in {result.seconds}s"
+        print(f"  - {result.question[:60]} … {state}", flush=True)
+
+    results, summary = run(limit=args.limit, judge=not args.no_judge, pause=args.pause, done=done,
+                           on_result=progress)
+    failed = [r for r in results if r.error]
+    print(f"\nAnswer evaluation - {summary['questions']} questions"
+          + (f", {len(failed)} failed (rerun with --resume)" if failed else "") + "\n")
     print("| Question | Intent | Agents | Facts | Numbers | Source | Faithful | Relevant | s |")
     print("|---|---|---|---|---|---|---|---|---|")
     fmt = lambda v: "—" if v is None else ("✓" if v is True else "✗" if v is False else f"{v:.2f}")  # noqa: E731
     for r in results:
+        if r.error:
+            print(f"| {r.question[:55]} | ERROR: {r.error[:60]} | | | | | | | |")
+            continue
         print(f"| {r.question[:55]} | {fmt(r.intent_ok)} | {fmt(r.agents_ok)} | {fmt(r.fact_recall)} | "
               f"{fmt(r.numeric_ok)} | {fmt(r.source_hit)} | {fmt(r.faithfulness)} | {fmt(r.relevance)} | {r.seconds} |")
     print("\nSummary:", json.dumps(summary, indent=2))
@@ -162,7 +220,7 @@ def main() -> int:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     out = RESULTS_DIR / f"answer_eval_{datetime.now():%Y%m%d_%H%M%S}.json"
     out.write_text(json.dumps({"summary": summary, "results": [asdict(r) for r in results],
-                               "models": [get_settings().llm_model, get_settings().llm_fast_model]}, indent=2))
+                               "models": list(effective_models())}, indent=2))
     print(f"\nSaved {out}")
     return 0
 

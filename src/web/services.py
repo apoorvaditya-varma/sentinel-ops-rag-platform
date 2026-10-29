@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import logging
+import threading
+import time
 from dataclasses import dataclass, field
 
-from src.config import get_settings
+from src.config import get_settings, missing_keys_for, sample_documents
 from src.agents.graph import default_models, run_agents
 from src.agents.registry import ALL_AGENTS
-from src.errors import NotFoundError, UserInputError, report
+from src.errors import CancelledError, NotFoundError, UserInputError, report
 from src.guardrails.content_scan import redact_secrets
 from src.guardrails.query_guard import BLOCKED_REPLY, MAX_QUESTION_CHARS, check_question
 from src.guardrails.relevance import Verdict
@@ -16,6 +18,7 @@ from src.history import get_history
 from src.ingestion.pipeline import IngestReport, ingest_file, remove_file
 from src.ingestion.screening import ScreeningResult, discard, promote, screen_upload
 from src.retrieval.retriever import retrieve
+from src.llm import effective_models
 from src.logging_setup import audit
 from src.vectorstore.store import get_store
 from src.web.presenters import (
@@ -48,8 +51,16 @@ class UploadOutcome:
     technical: dict = field(default_factory=dict)
 
 
+AI_ANSWERS_PREF = "ai_answers"
+
+
+def ai_answers_wanted() -> bool:
+    return get_history().get_pref(AI_ANSWERS_PREF, "true") == "true"
+
+
 def ai_enabled() -> bool:
-    return not get_settings().missing_api_keys()
+    """AI-written answers need a key for the chosen models and the switch on; otherwise passages are shown."""
+    return ai_answers_wanted() and not missing_keys_for(effective_models())
 
 
 # ---- documents ---------------------------------------------------------------
@@ -114,7 +125,7 @@ def add_files(files: list[tuple[str, bytes]]) -> list[UploadOutcome]:
 
 
 def add_sample_documents() -> list[UploadOutcome]:
-    samples = sorted(get_settings().sample_docs_dir.glob("*.*"))
+    samples = sample_documents()
     return add_files([(p.name, p.read_bytes()) for p in samples])
 
 
@@ -190,11 +201,15 @@ def _preview(question: str, scope: list[str] | None, indexed: dict) -> tuple[str
     top = sources[0]
     top["featured"] = True  # preview mode: show the best passage inline, not only under Sources
     where = f"{top['title']}" + (f", {top['location']}" if top["location"] else "")
-    return ("AI-written answers aren't switched on yet, so here is the most relevant passage "
-            f"from your documents (**{where}**). More matches are listed under *Sources*."), sources
+    reason = ("AI answers are switched off in Settings" if not ai_answers_wanted()
+              else "no API key is set for the chosen models (see Settings)")
+    return (f"Because {reason}, here is the most relevant passage from your documents "
+            f"(**{where}**). More matches are listed under *Sources*."), sources
 
 
-def ask(question: str, conversation_id: str | None = None, scope: list[str] | None = None) -> AskResult:
+def ask(question: str, conversation_id: str | None = None, scope: list[str] | None = None,
+        cancel: threading.Event | None = None) -> AskResult:
+    started = time.perf_counter()
     check = check_question(question)
     if not check.allowed and check.reason == "empty":
         raise UserInputError("Please type a question.")
@@ -220,14 +235,19 @@ def ask(question: str, conversation_id: str | None = None, scope: list[str] | No
     elif ai_enabled():
         try:
             result = run_agents(check.question, previous, [s for s in (scope or []) if s in indexed] or None,
-                                models=get_models())
+                                models=get_models(), cancel=cancel)
             answer, mode = result.answer, "answer"
             sources = [agent_source_view(s, result.cited) for s in result.sources]
             meta |= {
+                "models": list(effective_models()),
                 "agents": result.agents_used, "intent": result.intent, "caveat": result.caveat,
                 "standalone_question": result.question,
                 "trace": [dict(step, title=ALL_AGENTS[step["agent"]].title) for step in result.trace],
             }
+        except CancelledError:
+            history.add_message(conversation_id, "assistant", "Stopped before an answer was ready.",
+                                meta={"mode": "cancelled", "seconds": round(time.perf_counter() - started, 1)})
+            raise
         except Exception as exc:  # noqa: BLE001 - fall back to showing passages
             error = report(exc, "answering with agents", log)
             answer, sources = _preview(check.question, scope, indexed)
@@ -238,5 +258,6 @@ def ask(question: str, conversation_id: str | None = None, scope: list[str] | No
         mode = "preview"
 
     meta["mode"] = mode
+    meta["seconds"] = round(time.perf_counter() - started, 1)
     history.add_message(conversation_id, "assistant", answer, sources, meta)
     return AskResult(conversation_id, created, check.question, answer, sources, mode, meta)

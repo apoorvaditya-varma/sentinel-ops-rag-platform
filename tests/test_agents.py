@@ -7,7 +7,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 
 from src.agents import graph as graph_module
 from src.agents.graph import NO_CITATIONS, OUT_OF_SCOPE_REPLY, UNSUPPORTED, UNVERIFIED, Models, run_agents
-from src.config import get_settings
+from src.config import get_settings, sample_documents
 from src.ingestion import pipeline
 from src.rag.chain import NOT_FOUND
 from src.retrieval import retriever
@@ -31,7 +31,7 @@ def stores(tmp_path_factory):
         mp.setattr(pipeline, "get_table_store", lambda: tables)
         mp.setattr(pipeline, "get_settings", lambda: settings)
         mp.setattr(retriever, "get_store", lambda: store)
-        for path in sorted(SAMPLES.glob("*.*")):
+        for path in sample_documents():
             pipeline.ingest_file(path)
         yield store, tables
     store.client.close()
@@ -157,6 +157,19 @@ def test_analyst_queries_tables_with_tools(stores):
     assert tool_names == {"list_tables", "describe_table", "run_sql"}
 
 
+def test_analyst_date_columns_are_json_safe(stores):
+    """Regression: SLA/first_seen dates from the scan table crashed history storage (TypeError on json.dumps)."""
+    import json
+
+    sql = f"SELECT finding_id, sla_due, first_seen FROM {SCAN} WHERE status = 'Open' ORDER BY sla_due LIMIT 3"
+    fast = fast_model(plan(("analyst", "List the earliest open SLA due dates")))
+    strong = writer_model(["The earliest due date is shown [T1]."], analyst=sql_analyst(sql))
+    result = run_agents("earliest due dates?", models=Models(strong, fast), tables=stores[1])
+    query = next(s for s in result.sources if s["kind"] == "query")["query"]
+    assert all(isinstance(row[1], str) and row[1].startswith("2026-") for row in query["rows"])
+    json.dumps(query)  # must not raise
+
+
 def test_analyst_sql_errors_are_returned_to_the_agent(stores):
     bad = iter(["DROP TABLE x", f"SELECT COUNT(*) FROM {SCAN}"])
     seen_errors = []
@@ -260,6 +273,19 @@ def test_fast_model_outage_degrades_gracefully(stores, monkeypatch):
     assert [s.agent for s in result.plan.steps] == ["researcher"]          # default plan
     assert result.caveat == UNVERIFIED and "[S1]" in result.answer        # no review, but still answered
     assert len(fast.calls) >= 3 * get_settings().llm_retry_attempts      # retried plan, grade, review
+
+
+def test_cancel_event_stops_the_workflow(stores):
+    import threading
+
+    from src.errors import CancelledError
+
+    cancel = threading.Event()
+    cancel.set()
+    fast = fast_model(plan(("researcher", "x")))
+    with pytest.raises(CancelledError):
+        run_agents("x", models=Models(writer_model(["unused"]), fast), tables=stores[1], cancel=cancel)
+    assert fast.calls == []  # nothing was sent to a model
 
 
 def test_writer_failure_propagates(stores, monkeypatch):

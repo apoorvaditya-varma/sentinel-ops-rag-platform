@@ -6,6 +6,8 @@ documents in scope, and they record every query for citations and the trace.
 
 from __future__ import annotations
 
+import datetime
+import decimal
 import re
 
 from langchain_core.tools import BaseTool, tool
@@ -13,6 +15,15 @@ from langchain_core.tools import BaseTool, tool
 from src.tables.sql_store import QueryRejected, TableStore
 
 MAX_ROWS_PER_QUERY = 50
+
+
+def json_safe(value):
+    """DuckDB returns date/datetime/Decimal objects; sources are stored as JSON and rendered as text."""
+    if isinstance(value, (datetime.date, datetime.datetime)):
+        return value.isoformat()
+    if isinstance(value, decimal.Decimal):
+        return float(value)
+    return value
 
 
 def make_sql_tools(store: TableStore, sources: list[str] | None, query_log: list[dict]) -> list[BaseTool]:
@@ -47,7 +58,8 @@ def make_sql_tools(store: TableStore, sources: list[str] | None, query_log: list
             query_log.append({"sql": sql, "error": str(exc)})
             return f"ERROR: {exc}"
         markdown = result.to_markdown()
-        query_log.append({"sql": sql, "columns": result.columns, "rows": [list(r) for r in result.rows],
+        query_log.append({"sql": sql, "columns": result.columns,
+                          "rows": [[json_safe(v) for v in r] for r in result.rows],
                           "truncated": result.truncated, "markdown": markdown})
         return markdown
 

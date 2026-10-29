@@ -12,6 +12,22 @@
     });
   }
 
+  const FONTS = ["modern", "classic", "mono"];
+  function storeFont(font) {
+    if (!FONTS.includes(font)) font = "modern";
+    root.dataset.font = font;
+    try { localStorage.setItem("font", font); } catch (e) { /* private mode */ }
+    document.querySelectorAll("[data-font-choice]").forEach((r) => { r.checked = r.value === font; });
+  }
+
+  const SIZES = ["small", "normal", "large"];
+  function storeSize(size) {
+    if (!SIZES.includes(size)) size = "normal";
+    root.dataset.size = size;
+    try { localStorage.setItem("size", size); } catch (e) { /* private mode */ }
+    document.querySelectorAll("[data-size-choice]").forEach((r) => { r.checked = r.value === size; });
+  }
+
   function scrollMessages() {
     const box = document.getElementById("messages");
     if (box) box.scrollTop = box.scrollHeight;
@@ -20,6 +36,55 @@
   function autosize(textarea) {
     textarea.style.height = "auto";
     textarea.style.height = Math.min(textarea.scrollHeight, 200) + "px";
+  }
+
+  /* Elapsed-time counter and status phases while a question is being answered. */
+  const asking = { timer: null, started: 0 };
+  const PHASES = [
+    [0, "Searching your documents…"],
+    [8, "Reading the passages and planning the answer…"],
+    [20, "Writing the answer…"],
+    [45, "Still working — the AI service may be busy…"],
+    [90, "Taking unusually long. You can stop and try again…"],
+  ];
+
+  function startAsking() {
+    asking.started = Date.now();
+    const elapsed = document.querySelector("[data-elapsed]");
+    const status = document.querySelector("[data-status]");
+    const tick = () => {
+      const s = Math.round((Date.now() - asking.started) / 1000);
+      if (elapsed) elapsed.textContent = s + " s";
+      if (status) {
+        let text = PHASES[0][1];
+        for (const [from, label] of PHASES) if (s >= from) text = label;
+        status.textContent = text;
+      }
+    };
+    tick();
+    clearInterval(asking.timer);
+    asking.timer = setInterval(tick, 1000);
+  }
+
+  function stopAsking() {
+    clearInterval(asking.timer);
+    asking.timer = null;
+  }
+
+  function appendStoppedNote(question) {
+    const box = document.getElementById("messages");
+    if (!box) return;
+    document.getElementById("welcome")?.remove();
+    const user = document.createElement("article");
+    user.className = "msg msg-user";
+    user.innerHTML = '<div class="bubble"></div>';
+    user.querySelector(".bubble").textContent = question;
+    const note = document.createElement("article");
+    note.className = "msg msg-assistant";
+    note.innerHTML = '<div class="avatar" aria-hidden="true"></div><div class="msg-body"><p class="answered-by">Stopped</p>' +
+      '<div class="prose"><p>Stopped before an answer was ready. Ask again or rephrase the question.</p></div></div>';
+    box.append(user, note);
+    box.scrollTop = box.scrollHeight;
   }
 
   function flash(message, hint) {
@@ -35,6 +100,8 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     storeTheme(root.dataset.theme || "system");
+    storeFont(root.dataset.font || "modern");
+    storeSize(root.dataset.size || "normal");
     scrollMessages();
 
     const question = document.getElementById("question");
@@ -73,7 +140,13 @@
     const target = e.target.closest("[data-action]");
     if (!target) return;
     const action = target.dataset.action;
-    if (action === "toggle-sidebar") {
+    if (action === "stop-question") {
+      const form = document.getElementById("composer");
+      const question = form?.dataset.pendingQuestion || "";
+      htmx.trigger(form, "htmx:abort");
+      stopAsking();
+      appendStoppedNote(question);
+    } else if (action === "toggle-sidebar") {
       document.body.classList.toggle("sidebar-open");
     } else if (action === "dismiss") {
       target.closest(".flash")?.remove();
@@ -82,6 +155,12 @@
 
   document.addEventListener("change", (e) => {
     if (e.target.matches("[data-theme-choice]")) storeTheme(e.target.value);
+    if (e.target.matches("[data-font-choice]")) storeFont(e.target.value);
+    if (e.target.matches("[data-size-choice]")) storeSize(e.target.value);
+    if (e.target.matches("[data-model-select]")) {
+      const custom = e.target.parentElement.querySelector("[data-model-custom]");
+      if (custom) { custom.hidden = e.target.value !== "__custom__"; if (!custom.hidden) custom.focus(); }
+    }
     if (e.target.matches(".scope-list input")) {
       const checked = document.querySelectorAll(".scope-list input:checked").length;
       const label = document.querySelector("[data-scope-label]");
@@ -106,10 +185,15 @@
     }
     if (e.detail.elt.closest && e.detail.elt.closest("#messages, #composer")) {
       document.getElementById("flash")?.replaceChildren();
+      const composer = document.getElementById("composer");
+      const params = e.detail.requestConfig && e.detail.requestConfig.parameters;
+      if (composer) composer.dataset.pendingQuestion = (params && params.question) || document.getElementById("question")?.value || "";
+      startAsking();
     }
   });
   document.addEventListener("htmx:afterRequest", (e) => {
     const form = e.detail.elt;
+    if (form.closest && form.closest("#messages, #composer")) stopAsking();
     if (form.id === "composer" && e.detail.successful) {
       const q = document.getElementById("question");
       if (q) { q.value = ""; autosize(q); q.focus(); }

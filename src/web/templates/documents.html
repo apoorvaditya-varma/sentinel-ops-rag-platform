@@ -22,7 +22,8 @@
       <div class="actions">
         <button class="btn btn-primary" type="submit">Add documents</button>
         <button class="btn" type="button" hx-post="/documents/samples" hx-target="#doc-area"
-                hx-swap="innerHTML" hx-indicator="#upload-busy">Try sample documents</button>
+                hx-swap="innerHTML" hx-indicator="#upload-busy"
+                title="Adds the 8 demo documents from data/sample_docs (its extra/, offtopic/ and redteam/ folders are for manual upload)">Try sample documents</button>
         <span id="upload-busy" class="htmx-indicator busy"><span class="spinner"></span> Checking and adding…</span>
       </div>
     </form>

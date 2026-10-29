@@ -52,10 +52,13 @@ def screen_upload(name: str, data: bytes) -> ScreeningResult:
         return ScreeningResult(name, Verdict.REJECTED, "file_type", str(exc))
 
     duplicate = _find_duplicate(checked.sha256)
-    if duplicate:
-        audit("upload_rejected", file=checked.filename, stage="duplicate", duplicate_of=duplicate)
+    same_name = (settings.upload_dir / checked.filename).exists()
+    if duplicate or same_name:
+        reason = (f"Identical to already uploaded '{duplicate}'." if duplicate
+                  else "A document with this name is already in the knowledge base; remove it first to replace it.")
+        audit("upload_rejected", file=checked.filename, stage="duplicate", duplicate_of=duplicate or checked.filename)
         return ScreeningResult(
-            checked.filename, Verdict.REJECTED, "duplicate", f"Identical to already uploaded '{duplicate}'.",
+            checked.filename, Verdict.REJECTED, "duplicate", reason,
             checked.category, checked.size_bytes, checked.sha256,
         )
 
@@ -97,8 +100,6 @@ def promote(result: ScreeningResult) -> Path:
     if result.staged_path is None or not result.staged_path.exists():
         raise FileNotFoundError(f"No staged file for {result.filename}")
     target = get_settings().upload_dir / result.filename
-    if target.exists():
-        target = target.with_name(f"{target.stem}_{result.sha256[:8]}{target.suffix}")
     shutil.move(result.staged_path, target)
     result.staged_path = None
     return target

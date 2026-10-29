@@ -16,7 +16,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 from langchain_qdrant import FastEmbedSparse
 
-from src.config import get_settings
+from src.config import get_settings, missing_keys_for
 from src.errors import MissingAPIKeyError
 
 
@@ -33,27 +33,48 @@ class FastEmbedEmbeddings(Embeddings):
         return next(iter(self._model.query_embed(text))).tolist()
 
 
-def _require_keys() -> None:
-    missing = get_settings().missing_api_keys()
+STRONG_PREF, FAST_PREF = "llm_model", "llm_fast_model"
+
+
+def effective_models() -> tuple[str, str]:
+    """(strong, fast) model strings: Settings-page choice if set, otherwise .env."""
+    from src.history import get_history  # local import: history depends on config, not on llm
+
+    settings = get_settings()
+    history = get_history()
+    return (history.get_pref(STRONG_PREF) or settings.llm_model,
+            history.get_pref(FAST_PREF) or settings.llm_fast_model)
+
+
+def _require_key(model: str) -> None:
+    missing = missing_keys_for((model,))
     if missing:
-        raise MissingAPIKeyError(detail=f"missing {', '.join(missing)}")
+        raise MissingAPIKeyError(detail=f"{model} needs {', '.join(missing)}")
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=16)
+def build_chat_model(model: str, temperature: float) -> BaseChatModel:
+    """One cached client per (model, temperature); the cache is cleared when keys change."""
+    settings = get_settings()
+    return init_chat_model(model, temperature=temperature, timeout=settings.llm_timeout_s, max_retries=1)
+
+
+def reset_model_cache() -> None:
+    build_chat_model.cache_clear()
+
+
 def get_chat_model() -> BaseChatModel:
-    """Strong model: planning, synthesis, table analysis."""
-    _require_keys()
-    settings = get_settings()
-    return init_chat_model(settings.llm_model, temperature=settings.llm_temperature,
-                           timeout=settings.llm_timeout_s, max_retries=1)  # our retry_transient handles the rest
+    """Strong model: analysis, answer writing."""
+    model = effective_models()[0]
+    _require_key(model)
+    return build_chat_model(model, get_settings().llm_temperature)
 
 
-@lru_cache(maxsize=1)
 def get_fast_chat_model() -> BaseChatModel:
-    """Cheap model: routing, relevance grading, groundedness checks."""
-    _require_keys()
-    settings = get_settings()
-    return init_chat_model(settings.llm_fast_model, temperature=0, timeout=settings.llm_timeout_s, max_retries=1)
+    """Fast model: supervisor plan, passage grading, review, borderline upload screening."""
+    model = effective_models()[1]
+    _require_key(model)
+    return build_chat_model(model, 0.0)
 
 
 @lru_cache(maxsize=1)

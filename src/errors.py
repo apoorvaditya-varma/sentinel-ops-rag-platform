@@ -133,6 +133,12 @@ class UserInputError(AppError):
     user_message = "Please check your input."
 
 
+class CancelledError(AppError):
+    code = "CANCELLED"
+    severity = Severity.INFO
+    user_message = "Stopped."
+
+
 class InvalidRequestError(UserInputError):
     code = "INVALID_REQUEST"
     user_message = "The request was not valid."

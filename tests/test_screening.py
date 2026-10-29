@@ -6,7 +6,7 @@ from dataclasses import replace
 import pytest
 from langchain_core.documents import Document
 
-from src.config import get_settings
+from src.config import get_settings, sample_documents
 from src.guardrails import relevance
 from src.guardrails.relevance import Verdict, check_relevance
 from src.ingestion import screening
@@ -60,13 +60,13 @@ ON_TOPIC_EXTRA = {
 
 @pytest.fixture(autouse=True)
 def no_llm(monkeypatch):
-    settings = get_settings()
-    monkeypatch.setattr(type(settings), "missing_api_keys", lambda self: ["GOOGLE_API_KEY"])
+    """Embedding stage only: pretend no LLM key exists so tests are offline and deterministic."""
+    monkeypatch.setattr(relevance, "missing_keys_for", lambda models: ["GOOGLE_API_KEY"])
 
 
 @pytest.mark.parametrize(
     "path",
-    [p for p in sorted(get_settings().sample_docs_dir.glob("*.*"))],
+    sample_documents(),
     ids=lambda p: p.name,
 )
 def test_sample_corpus_accepted(path):
@@ -129,6 +129,8 @@ def test_screen_and_promote_flow(isolated_dirs):
 
     again = screening.screen_upload("copy.txt", data)
     assert again.verdict is Verdict.REJECTED and again.stage == "duplicate"
+    renamed = screening.screen_upload("runbook.txt", data + b"\n# edited")  # same name, different content
+    assert renamed.verdict is Verdict.REJECTED and "already in the knowledge base" in renamed.reason
 
 
 def test_screen_rejects_off_topic_and_cleans_staging(isolated_dirs):

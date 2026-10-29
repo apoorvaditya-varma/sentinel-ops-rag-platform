@@ -55,7 +55,7 @@ parts.append('<text x="36" y="72" class="hs">LOCAL MACHINE (no Docker, no server
 
 # UI layer
 box(40, 86, 150, 60, "User", "browser", "ui")
-box(240, 86, 1000, 60, "Web UI + REST API  (FastAPI · Jinja · HTMX)", "Ask with history  ·  Documents  ·  Settings  ·  light / dark themes  ·  /api/* + OpenAPI docs", "ui")
+box(240, 86, 1000, 60, "Web UI + REST API  (FastAPI · Jinja · HTMX)", "Ask (history, Stop, citations)  ·  Documents  ·  Settings (models, keys, appearance)  ·  /api/* + OpenAPI docs", "ui")
 arrow([(190, 116), (240, 116)])
 
 # Column headers
@@ -140,7 +140,7 @@ arrow([(560, 784), (560, 770), (652, 770), (652, 312), (1095, 312), (1095, 322)]
 parts.append('<text x="604" y="758" class="l">read</text>')
 
 # External LLM API
-box(R, 926, RW, 56, "Google Gemini API", "gemini-3.8-flash (strong)  ·  gemini-3.5-flash-lite (fast)  ·  swappable via .env", "ext")
+box(R, 926, RW, 56, "LLM provider  (chosen in Settings)", "Google Gemini (default: 3.8-flash / 3.5-flash-lite)  ·  OpenAI  ·  Anthropic", "ext")
 arrow([(950, 926), (950, 892)], color="#0d9488")
 parts.append('<text x="960" y="914" class="ls">HTTPS: only prompts + excerpts leave</text>')
 

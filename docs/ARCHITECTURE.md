@@ -16,9 +16,10 @@ vulnerability scans, change records and deployment logs.
 | **Hybrid retrieval** (dense + BM25, RRF fusion) | Ops text is full of exact tokens (CVE IDs, error codes, hostnames) that dense embeddings blur; BM25 catches them. | `src/retrieval` |
 | **Cross-encoder reranking** | Cheapest large gain after hybrid search: over-fetch 20, keep the best 5. | `src/retrieval` |
 | **Corrective RAG loop** | A fast model grades retrieved chunks; if they don't answer the question, rewrite the query and retry (bounded). | `src/agents/graph.py` |
-| **Text-to-SQL for tables** | Embedding CSV rows can't answer "how many open criticals per team"; DuckDB gives exact aggregates. | `src/tables`, table-analyst agent |
-| **Two-tier models** | Cheap model for routing/grading/validation, strong model for synthesis. Lower cost and latency. | `src/llm.py` |
-| **Grounding validator** | Every claim in the answer must be supported by a cited source; otherwise regenerate or flag low confidence. | validator node |
+| **Text-to-SQL for tables** | Embedding CSV rows can't answer "how many open criticals per team"; DuckDB gives exact aggregates. | `src/tables`, Data Analyst agent |
+| **Supervisor + specialist agents** | Each agent has one capability and its own tools; a supervisor plans their order and later agents receive earlier findings. | `src/agents/registry.py`, `graph.py` |
+| **Two-tier models** | Cheap model for planning/grading/review, strong model for analysis and writing; a circuit breaker drops to the fast model when the strong one is overloaded. Models and providers are chosen in Settings. | `src/llm.py`, `src/model_registry.py` |
+| **Reviewer (grounding check)** | Every claim in the answer must be supported by a cited source; otherwise the writer revises once, then a caveat is shown. | Reviewer agent |
 | **Defense against indirect prompt injection** | OWASP LLM01: uploaded documents are untrusted input. Chunks are scanned at ingestion and wrapped as data, never instructions. | `src/guardrails` |
 | **Secret redaction** | Ops docs routinely contain keys and passwords; they are masked before indexing and before display. | `src/guardrails` |
 | **Fully local data plane** | Embedded Qdrant + DuckDB + ONNX models: no Docker, no servers, only the LLM call leaves the machine. | — |
@@ -260,7 +261,7 @@ runs as follows:
 - Every agent appends a trace step (`agent`, `action`, `detail`, `ms`). The UI shows these under *Technical details → How this answer was produced*, and the chat shows "Answered by …".
 - All prompts are in `src/agents/prompts.py`.
 
-**Failure behaviour (graceful degradation).** All LLM calls go through `retry_transient` (3 attempts with backoff).
+**Failure behaviour (graceful degradation).** All LLM calls go through `retry_transient` (`LLM_RETRY_ATTEMPTS`, default 4, with backoff 2 s, 4 s, 8 s); the strong model gets 2 attempts before the circuit breaker switches the request to the fast model.
 
 | Failure | Behaviour |
 |---|---|
@@ -270,6 +271,7 @@ runs as follows:
 | Reviewer fails | The answer is shown with "could not be checked automatically" |
 | Writer fails | The web layer shows the most relevant passages instead, with a notice and a reference ID |
 | Runaway loops | Prevented by `AGENT_RECURSION_LIMIT` and the bounded retry counts |
+| User presses Stop | The browser aborts the request; the server notices the disconnect, sets a cancel event, and the workflow raises `CancelledError` before its next agent step (at most one in-flight model call completes). A "Stopped" turn is recorded in the history. |
 
 **Testing without an API key.** `tests/fakes.py` provides `ScriptedChatModel`, a real LangChain
 `BaseChatModel` whose replies are scripted per call. Structured output and the `create_agent` tool loop therefore
@@ -306,14 +308,34 @@ flowchart LR
 - **Plain language first.** `presenters.py` turns internal results into user wording (friendly file names,
   "Added / Not added / Needs your confirmation", "passwords were hidden"). Scores, file names, chunk IDs and
   error codes go into collapsed *Details* or *Technical details* sections, and a setting can hide them.
-- **Themes.** CSS variables define the light and dark palettes. `data-theme` (`system`, `light` or `dark`) is set
+- **Appearance.** CSS variables define the light and dark palettes, three font stacks (Modern / Classic /
+  Mono, system fonts only) and three text sizes. `data-theme`, `data-font` and `data-size` are set on `<html>`
   before first paint from `localStorage`, and `system` follows `prefers-color-scheme`. The layout is responsive,
   and the sidebar becomes a slide-in drawer on phones.
+- **Long-running questions.** `/ask` runs the agents in a worker thread while the handler polls for a client
+  disconnect; the **Stop** button aborts the request, the server sets a cancel event and the workflow raises
+  `CancelledError` before its next step. The UI shows elapsed seconds and a status that changes with time.
+- **Settings page.** Appearance, the technical-details switch, the AI-answers switch, provider keys, model
+  choice with live model lists and a *Test models* action, history deletion, and collapsed system details and
+  recent problems. Every control has an ⓘ tooltip (`data-tip`, pure CSS).
 - **Safety.**
   - Jinja auto-escaping is on, and answer Markdown is rendered with raw HTML disabled.
   - The server binds to `127.0.0.1` by default. This is a single-user local app with no login.
   - Uploads are read with a size cap before screening.
   - Embedded Qdrant calls are serialised with a lock, because requests run in a thread pool.
+
+## Model selection (Settings)
+
+`src/model_registry.py` declares the providers (Google Gemini, OpenAI, Anthropic): the LangChain prefix,
+the key variable, and a models endpoint. The Settings page fetches each provider's current chat models
+with the user's key (cached 10 minutes, filtered to chat-capable models, newest first) and falls back to a
+short built-in list offline. The chosen *answer* and *fast* models are stored as preferences in `app.db`
+and override the `.env` defaults (`src/llm.py: effective_models`); keys entered in the UI are written to
+`.env` by `src/env_file.py` (other lines preserved, file mode 0600) and applied to the running process, and
+the per-model client cache is cleared. All providers go through LangChain's `init_chat_model`, so the agents
+are provider-agnostic. **Test models** sends a one-word prompt to each selected model and reports the time
+or the classified error. An **AI answers** switch turns generation off without removing keys, in which case
+the chat shows passages.
 
 ## Error handling and logging
 
@@ -389,7 +411,9 @@ for example, `LOG_ROTATION=weekly-ish` raises a critical `ConfigError` naming th
   - faithfulness
   - answer relevance
 
-  Results are saved to `data/eval/results/`. The harness itself is tested with scripted models.
+  Results are saved to `data/eval/results/` together with the models in use. The harness itself is tested
+  with scripted models. **Status:** the harness is complete; the numbers from a live run will be recorded here
+  once the evaluation has been run with the final models.
 
 ## Limitations
 
@@ -403,9 +427,13 @@ for example, `LOG_ROTATION=weekly-ish` raises a critical `ConfigError` naming th
 - Table rows are both embedded and loaded into DuckDB. Very large spreadsheets (100k+ rows) would need sampling or SQL-only handling.
 - LLM-judged metrics depend on the judge model and are indicative, not absolute.
 - The agent flow is fully tested with scripted models but still has to be validated and its prompts tuned against Gemini; answer-quality numbers will be added after `answer_eval` runs with a real key.
-- Each question makes 4–6 LLM calls (plan, grade per research round, write, review, plus analyst tool turns), so answers take several seconds and use free-tier quota quickly. Answers are not streamed yet.
+- Each question makes 4–6 LLM calls (plan, grade per research round, write, review, plus analyst tool turns), so answers take several seconds and use free-tier quota quickly. When Google reports the strong model overloaded (503/504), the first attempt can take up to a minute before the circuit breaker switches the request to the fast model. Answers are not streamed yet; the UI shows elapsed time and a Stop button instead.
 - Pending uploads awaiting "Add anyway" live in process memory and are lost on restart; the staged file stays in `.staging` until the next upload of the same file.
 - The question guard is pattern-based; a determined attacker can phrase around it. The untrusted-source framing and the reviewer are the second and third lines of defence.
+- Model lists in Settings depend on each provider's models API and are filtered by name patterns; a new model type could be hidden or an unsuitable one shown. *Custom…* and *Test models* cover that case.
+- Keys entered in Settings are stored in plain text in `.env` (mode 0600), which is appropriate for a single-user local tool but not for a shared server.
+- Only one process can open the embedded index, so evaluations and CLI indexing require stopping the app.
+- The project's Gemini key is on Google's free tier: at the time of writing `gemini-3.8-flash` allows 20 requests per day and `gemini-3.5-flash-lite` 15 per minute. A question uses 1–2 answer-model calls, so roughly 10 questions a day are possible on the default model before switching the *Answer model* in Settings (or enabling billing). The answer evaluation therefore runs with `gemini-3.5-flash-lite` for both roles.
 
 ## Challenges faced
 
@@ -417,6 +445,16 @@ for example, `LOG_ROTATION=weekly-ish` raises a critical `ConfigError` naming th
 | SQL written by an LLM | A query that is "only a SELECT" can still read files (`read_csv('/etc/passwd')`) or install extensions. | DuckDB external access is disabled and the configuration locked, plus a single-SELECT check with DuckDB's own parser, row caps and a timeout. Tests prove file reads are blocked. |
 | Prompt injection vs security content | SecOps documents legitimately discuss prompt injection, so rejecting them would lose real knowledge. | Flag instead of reject: chunks are marked `untrusted`, prompts treat all sources as data, and the question guard ignores quoted text. |
 | Embedded vector store | Embedded Qdrant allows one process and is not built for concurrent threads, which caused lock errors while the old app was still running. | A process-wide store with a thread lock, a clear critical `STORE_LOCKED` message with a fix hint, and a single entry point for the CLI. |
-| Testing agents without an API key | There was no key during development, but the agent logic needed proper tests. | `ScriptedChatModel`, a real `BaseChatModel` with scripted replies, so structured output and the tool-calling agent run through the real LangChain code. 178 tests run offline. |
+| Testing agents without an API key | There was no key during development, but the agent logic needed proper tests. | `ScriptedChatModel`, a real `BaseChatModel` with scripted replies, so structured output and the tool-calling agent run through the real LangChain code. 196 tests run offline. |
 | Library churn | `langchain-community` is being sunset, and Streamlit limited the UX the project needed. | A small FastEmbed adapter in `src/llm.py`, and a move to FastAPI + HTMX with a REST API. |
 | Stale browser assets | Users saw old behaviour after updates because static files were cached by app version. | Content-hash asset URLs (`app.js?v=<sha>`). |
+| Provider overload | On the first live day Google returned 503/504 for `gemini-3.8-flash`; one question took 279 s and the analyst step failed outright. | 503/504 classified as transient; a per-request circuit breaker switches to the fast model after two failed attempts (also for the analyst); the UI shows elapsed time with a **Stop** button that cancels the agents server-side. |
+| Questions that cannot be stopped | A slow question left the user waiting with no control, and abandoning the page did not stop the API calls. | Cooperative cancellation: the handler watches for the client disconnect and sets an event the workflow checks before every step. |
+| Finder side effects | Browsing the sample folder in the file picker created a hidden `.DS_Store`, which "Try sample documents" and 26 tests picked up as a document. | One `sample_documents()` helper that ignores hidden files, used by the app, the generator and the tests. |
+| Hardcoded models | Model IDs retire; a fixed dropdown would go stale within months. | Model lists fetched live from each provider's models API with the user's key, cached, with a built-in fallback and a *Custom…* entry. |
+
+## Future work
+
+See [ROADMAP.md](ROADMAP.md): deployment (Docker image, Qdrant service, authentication, CI), answer
+quality and cost, new agent capabilities, knowledge management, user experience, security and
+compliance, and observability, with a suggested order.

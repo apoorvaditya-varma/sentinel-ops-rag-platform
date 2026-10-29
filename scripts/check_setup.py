@@ -69,12 +69,16 @@ def main() -> int:
         check("Sparse BM25 embeddings", check_sparse),
         check("Cross-encoder reranker", check_reranker),
     ]
-    if missing := settings.missing_api_keys():
-        print(f"[SKIP] LLM round-trips - set {', '.join(missing)} in .env")
+    from src.config import missing_keys_for
+    from src.llm import effective_models
+
+    strong, fast = effective_models()
+    if missing := missing_keys_for((strong, fast)):
+        print(f"[SKIP] LLM round-trips - set {', '.join(missing)} in .env (or on the Settings page)")
         results.append(False)
     else:
-        results.append(check("Strong LLM", check_llm(get_chat_model, settings.llm_model)))
-        results.append(check("Fast LLM", check_llm(get_fast_chat_model, settings.llm_fast_model)))
+        results.append(check("Strong LLM", check_llm(get_chat_model, strong)))
+        results.append(check("Fast LLM", check_llm(get_fast_chat_model, fast)))
     print("\nAll checks passed." if all(results) else "\nSome checks failed.")
     return 0 if all(results) else 1
 

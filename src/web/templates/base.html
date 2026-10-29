@@ -7,9 +7,15 @@
   <script>
     /* Apply the saved theme before first paint to avoid a light/dark flash. */
     (function () {
-      var theme = "system";
-      try { theme = localStorage.getItem("theme") || "system"; } catch (e) {}
+      var theme = "system", font = "modern", size = "normal";
+      try {
+        theme = localStorage.getItem("theme") || "system";
+        font = localStorage.getItem("font") || "modern";
+        size = localStorage.getItem("size") || "normal";
+      } catch (e) {}
       document.documentElement.dataset.theme = theme;
+      document.documentElement.dataset.font = font;
+      document.documentElement.dataset.size = size;
     })();
   </script>
   <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
@@ -37,7 +43,7 @@
       {% if ai_enabled() %}
       <span class="pill pill-ok" title="AI-written answers are enabled">AI answers on</span>
       {% else %}
-      <a class="pill pill-muted" href="/settings#ai" title="Showing matching passages only. Add an API key to enable AI answers.">AI answers off</a>
+      <a class="pill pill-muted" href="/settings#ai" title="Showing matching passages only. Turn on AI answers and set a key in Settings.">AI answers off</a>
       {% endif %}
       <div class="theme-switch" role="group" aria-label="Theme">
         <button type="button" data-theme-set="light" title="Light theme" aria-label="Light theme">

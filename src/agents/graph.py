@@ -21,6 +21,7 @@ only a writer failure aborts, and the web layer then falls back to showing passa
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from dataclasses import dataclass
 from datetime import date
@@ -35,7 +36,7 @@ from src.agents.registry import ALL_AGENTS, SPECIALISTS, specialist_menu
 from src.agents.state import AgentState, Finding, Grade, Plan, PlanStep, Review
 from src.agents.tools import make_sql_tools
 from src.config import get_settings
-from src.errors import classify_exception, report, retry_transient
+from src.errors import CancelledError, classify_exception, report, retry_transient
 from src.guardrails.content_scan import redact_secrets
 from src.rag.chain import NOT_FOUND, build_sources, clean_citations, format_sources, generate_answer
 from src.retrieval.retriever import retrieve
@@ -125,11 +126,17 @@ def _history_text(history: list[dict]) -> str:
     return "\n".join(f"{t['role']}: {t['content'][:300]}" for t in turns) or "(none)"
 
 
-def build_graph(models: Models, tables: TableStore):
+def build_graph(models: Models, tables: TableStore, cancel: threading.Event | None = None):
     settings = get_settings()
+    cancel = cancel or threading.Event()
+
+    def check_cancel() -> None:
+        if cancel.is_set():
+            raise CancelledError(detail="stopped by the user")
 
     # ---- supervisor -----------------------------------------------------------
     def supervisor(state: AgentState) -> dict:
+        check_cancel()
         started = time.perf_counter()
         scope = state.get("scope")
         available = tables.tables(scope)
@@ -176,6 +183,7 @@ def build_graph(models: Models, tables: TableStore):
         trace = list(state.get("trace", []))
         query, kept, seen = step.task, [], set()
         for attempt in range(settings.max_retrieval_retries + 1):
+            check_cancel()
             started = time.perf_counter()
             chunks = retrieve(query, sources=state.get("scope"))
             trace = _trace({"trace": trace}, "researcher", "search",
@@ -213,6 +221,7 @@ def build_graph(models: Models, tables: TableStore):
 
     # ---- specialist: data analyst (tool-calling agent) ----------------------------
     def analyst(state: AgentState) -> dict:
+        check_cancel()
         step = state["plan"].steps[state["step_index"]]
         started = time.perf_counter()
         query_log: list[dict] = []
@@ -240,6 +249,8 @@ def build_graph(models: Models, tables: TableStore):
                 models.trip(exc, "data analysis")
                 note = " (strong model unavailable, used fast model)"
                 summary = analyse(models.fast)
+        except CancelledError:
+            raise
         except Exception as exc:  # noqa: BLE001 - the writer can still use other findings
             error = report(exc, "data analysis", log)
             summary = f"Analysis failed: {error.user_message}"
@@ -255,6 +266,7 @@ def build_graph(models: Models, tables: TableStore):
 
     # ---- writer / reviewer / finalize ---------------------------------------------------
     def writer(state: AgentState) -> dict:
+        check_cancel()
         started = time.perf_counter()
         sources = build_sources(state.get("findings", []))
         feedback = ""
@@ -275,6 +287,7 @@ def build_graph(models: Models, tables: TableStore):
                 "trace": _trace(state, "writer", "write", detail, started)}
 
     def reviewer(state: AgentState) -> dict:
+        check_cancel()
         started = time.perf_counter()
         if not state.get("sources") or state["answer"] == NOT_FOUND:
             review = Review(grounded=True, answers_question=True)
@@ -328,9 +341,10 @@ def build_graph(models: Models, tables: TableStore):
 
 
 def run_agents(question: str, history: list[dict] | None = None, scope: list[str] | None = None,
-               models: Models | None = None, tables: TableStore | None = None) -> AgentResult:
+               models: Models | None = None, tables: TableStore | None = None,
+               cancel: threading.Event | None = None) -> AgentResult:
     settings = get_settings()
-    graph = build_graph(models or default_models(), tables or get_table_store())
+    graph = build_graph(models or default_models(), tables or get_table_store(), cancel)
     state = graph.invoke(
         {"question": question, "history": history or [], "scope": scope, "trace": []},
         config={"recursion_limit": settings.agent_recursion_limit},

@@ -7,16 +7,46 @@
   </header>
 
   <section class="card">
-    <h2>Appearance</h2>
-    <div class="segmented" role="radiogroup" aria-label="Theme">
-      <label><input type="radio" name="theme" value="system" data-theme-choice> System</label>
-      <label><input type="radio" name="theme" value="light" data-theme-choice> Light</label>
-      <label><input type="radio" name="theme" value="dark" data-theme-choice> Dark</label>
+    <h2>Appearance
+      <span class="info" tabindex="0" data-tip="System follows your computer's light/dark setting. The choice is remembered in this browser.">ⓘ</span>
+    </h2>
+    <div class="appearance-grid">
+      <div class="field">
+        <span class="field-label">Theme</span>
+        <div class="segmented" role="radiogroup" aria-label="Theme">
+          <label><input type="radio" name="theme" value="system" data-theme-choice> System</label>
+          <label><input type="radio" name="theme" value="light" data-theme-choice> Light</label>
+          <label><input type="radio" name="theme" value="dark" data-theme-choice> Dark</label>
+        </div>
+      </div>
+      <div class="field">
+        <span class="field-label">Font
+          <span class="info" tabindex="0" data-tip="Modern uses your system's sans-serif font. Classic uses a serif font that is easier for long reading. Mono uses a fixed-width font, handy for logs, IDs and configuration text. Remembered in this browser.">ⓘ</span>
+        </span>
+        <div class="segmented" role="radiogroup" aria-label="Font">
+          <label class="font-modern"><input type="radio" name="font" value="modern" data-font-choice> Modern</label>
+          <label class="font-classic"><input type="radio" name="font" value="classic" data-font-choice> Classic</label>
+          <label class="font-mono"><input type="radio" name="font" value="mono" data-font-choice> Mono</label>
+        </div>
+      </div>
+      <div class="field">
+        <span class="field-label">Text size
+          <span class="info" tabindex="0" data-tip="Scales all text in the app. Large is easier to read on high-resolution screens or from a distance; Small fits more on screen. Remembered in this browser.">ⓘ</span>
+        </span>
+        <div class="segmented" role="radiogroup" aria-label="Text size">
+          <label><input type="radio" name="size" value="small" data-size-choice> Small</label>
+          <label><input type="radio" name="size" value="normal" data-size-choice> Normal</label>
+          <label><input type="radio" name="size" value="large" data-size-choice> Large</label>
+        </div>
+      </div>
     </div>
+    <p class="font-preview muted small">Preview: Critical vulnerabilities on internet-facing systems must be fixed within 72 hours [S1] · CVE-2024-6387 · DEP-1187</p>
   </section>
 
   <section class="card">
-    <h2>Answers</h2>
+    <h2>Answers
+      <span class="info" tabindex="0" data-tip="Technical details show how each answer was produced: the agents' steps, relevance scores, file names and passage IDs. Useful for checking an answer; hide it for a cleaner view.">ⓘ</span>
+    </h2>
     <label class="switch-row">
       <input type="checkbox" name="show_technical" {% if show_technical %}checked{% endif %}
              hx-post="/settings/technical" hx-trigger="change" hx-target="#technical-saved"
@@ -27,19 +57,12 @@
     <span id="technical-saved" class="muted small"></span>
   </section>
 
-  <section class="card" id="ai">
-    <h2>AI answers</h2>
-    {% if not missing_keys %}
-    <p><span class="pill pill-ok">On</span> Answers are written by AI from your documents.</p>
-    {% else %}
-    <p><span class="pill pill-muted">Off</span> You'll see the most relevant passages from your documents instead of a written answer.</p>
-    <p class="muted small">To turn AI answers on, add a Google Gemini API key to the <code>.env</code> file
-      (<code>GOOGLE_API_KEY=…</code>) and restart the app. See docs/SETUP.md.</p>
-    {% endif %}
-  </section>
+  {% include "partials/model_settings.html" %}
 
   <section class="card">
-    <h2>Your data</h2>
+    <h2>Your data
+      <span class="info" tabindex="0" data-tip="Conversations, upload history and your settings live in data/app.db on this computer. Deleting history does not remove documents from the knowledge base.">ⓘ</span>
+    </h2>
     <p class="muted">{{ counts.documents }} document{{ 's' if counts.documents != 1 }} · {{ counts.conversations }} conversation{{ 's' if counts.conversations != 1 }}. Everything is stored on this computer.</p>
     <div class="actions">
       <button class="btn btn-danger" hx-post="/settings/clear-history" hx-target="#data-saved"
@@ -54,10 +77,10 @@
     <summary>System details</summary>
     <div class="table-wrap">
       <table class="kv">
-        <tr><th colspan="2">AI models</th></tr>
-        <tr><td>Answer model</td><td><code>{{ settings.llm_model }}</code></td></tr>
-        <tr><td>Fast model (routing, checks)</td><td><code>{{ settings.llm_fast_model }}</code></td></tr>
-        <tr><td>API key</td><td>{{ "set" if not missing_keys else "missing: " ~ missing_keys|join(", ") }}</td></tr>
+        <tr><th colspan="2">AI models (in use)</th></tr>
+        <tr><td>Answer model</td><td><code>{{ strong }}</code></td></tr>
+        <tr><td>Fast model (routing, checks)</td><td><code>{{ fast }}</code></td></tr>
+        <tr><td>API keys</td><td>{{ "set" if not missing_keys else "missing: " ~ missing_keys|join(", ") }}</td></tr>
         <tr><th colspan="2">Search (runs locally)</th></tr>
         <tr><td>Embedding model</td><td><code>{{ settings.embedding_model }}</code></td></tr>
         <tr><td>Keyword model</td><td><code>{{ settings.sparse_model }}</code></td></tr>

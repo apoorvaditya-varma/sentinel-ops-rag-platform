@@ -1,8 +1,10 @@
 # Setup Guide — Sentinel Ops RAG Platform
 
-Step-by-step instructions to run the platform locally on macOS, Linux or
+Step-by-step instructions for the **first-time install** on macOS, Linux or
 Windows. No Docker, database server or cloud account is needed; the only
-external service is the Google Gemini API.
+external service is the AI provider (Google Gemini by default; OpenAI and
+Anthropic can be chosen in Settings). For day-to-day start/stop, data locations
+and troubleshooting after the install, see the [operations handbook](HANDBOOK.md).
 
 **Time needed:** about 10 minutes (most of it is the one-time dependency and model download).
 
@@ -91,9 +93,12 @@ Everything else has working defaults. The most useful settings:
 | `LOG_DIR` / `LOG_TO_FILE` | `logs` / `true` | Log folder; set `LOG_TO_FILE=false` for console only |
 | `LANGSMITH_TRACING` / `LANGSMITH_API_KEY` | off | Optional tracing of every agent step |
 
-To use a different LLM provider, install its LangChain package and change the
-model string, e.g. `pip install langchain-openai` then
-`LLM_MODEL=openai:gpt-5.4-mini` and `OPENAI_API_KEY=...`.
+**Changing models or providers.** The `.env` values are the defaults. On the **Settings** page you can
+paste a Google, OpenAI or Anthropic key (it is written to `.env`), pick the *Answer model* and *Fast model*
+from the provider's current list (fetched live with your key; a built-in list is used offline), type any
+`provider:model` string under *Custom…*, click **Test models** to check both reply, and reset to the
+`.env` defaults. Changes apply to the next question without a restart. The three provider packages
+(`langchain-google-genai`, `langchain-openai`, `langchain-anthropic`) are installed with the requirements.
 
 ## 5. Verify the setup
 
@@ -115,117 +120,47 @@ The first run downloads the local models (~200 MB) into `.cache/`. Expected outp
 All checks passed.
 ```
 
-## 6. Run the application
+## 6. Start it for the first time
 
 ```bash
 python -m src.web
 ```
 
-Open <http://127.0.0.1:7400>. Stop the app with `Ctrl+C`. Then:
+Open <http://127.0.0.1:7400>, go to **Documents → Try sample documents**, then ask a question on **Ask**.
+Stop the app with `Ctrl+C`. Everything from here on (daily start/stop, using the pages, where data
+lives, the API, routine tasks and runtime troubleshooting) is in the
+[operations handbook](HANDBOOK.md).
 
-1. Go to **Documents** and click **Try sample documents**, or drag in your own files and click **Add documents**.
-   Expand **What can I add?** to see accepted topics and file types.
-2. Each file gets a plain-language result:
-   - **Added**: indexed immediately; topics and any warnings are shown
-   - **Needs your confirmation**: borderline topic; choose *Add anyway* or *Don't add*
-   - **Not added**: the reason is shown (wrong type, macros, off-topic, duplicate…)
-3. **Your documents** lists everything with friendly names; *Remove* deletes a document everywhere.
-   **Details** and **Upload history** are collapsed by default.
-4. Go to **Ask** and type a question (Enter sends, Shift+Enter adds a new line), or click a starter question.
-   Until AI answers are enabled (Task 7), you see the most relevant passage inline and the other matches under **Sources**.
-   Past conversations appear in **History** on the left.
-5. **Settings** has the theme (System / Light / Dark), the *Technical details* switch, AI status,
-   deleting history, plus collapsed **System details** and **Recent problems**.
-
-The REST API runs on the same server. Interactive docs are at <http://127.0.0.1:7400/api/docs>:
-
-```bash
-curl -s localhost:7400/api/health
-curl -s -X POST localhost:7400/api/ask -H 'Content-Type: application/json' \
-     -d '{"question": "What is the patch SLA for critical vulnerabilities?"}'
-curl -s -F files=@my_runbook.docx localhost:7400/api/documents
-```
-
-Alternatively, index from the command line (stop the app first, because embedded
-Qdrant allows only one process):
-
-```bash
-python -m scripts.ingest data/sample_docs          # screen + index a folder
-python -m scripts.ingest my_runbook.docx scan.csv  # individual files
-python -m scripts.ingest --reindex                 # rebuild the index from data/uploads/
-```
-
-Try the guardrails: upload `data/sample_docs/redteam/vendor_advisory_with_injection.txt`
-(prompt-injection warning), `runbook_leaked_credentials.txt` (secret-masking
-warning), any `.exe`/`.zip`/`.doc` file (blocked type) or a recipe/sports
-article (off-topic).
-
-## 7. Run the tests
+## 7. Run the tests (optional)
 
 ```bash
 python -m pytest -q
 ```
 
-Tests are offline: the LLM stage is disabled and only the local models are used.
-The retrieval tests index the sample corpus into a temporary folder, so your
-real index is not touched.
-
-Retrieval benchmark (index the sample corpus first, with the app stopped):
-
-```bash
-python -m scripts.ingest data/sample_docs
-python -m src.evaluation.retrieval_eval
-```
-
-Answer-quality evaluation of the agents (needs `GOOGLE_API_KEY`; about 13 questions × 4–6 LLM calls):
-
-```bash
-python -m src.evaluation.answer_eval            # add --limit 3 for a quick check, --no-judge to skip LLM judging
-```
-
-Results are printed as a table and saved to `data/eval/results/`.
+The 196 tests are offline: the LLM stage is replaced by scripted models and only the local search
+models are used. The retrieval tests index the sample corpus into a temporary folder, so your real index
+is not touched. The retrieval and answer-quality evaluations are described in the handbook's
+[Evaluations](HANDBOOK.md#10-evaluations) section.
 
 ## 8. Regenerate sample data and diagrams (optional)
 
 ```bash
-python -m scripts.generate_sample_data     # data/sample_docs/
+python -m scripts.generate_sample_data     # data/sample_docs/ (core corpus + extra/, offtopic/, redteam/)
 python -m scripts.draw_architecture        # docs/architecture.svg
 ```
 
-## 9. Build the submission zip
-
-```bash
-bash scripts/make_submission.sh
-```
-
-This creates `dist/sentinel-ops-rag-platform-YYYYMMDD.zip`. It excludes `.venv/`,
-`.env` (your API key), `.cache/`, indexed data and `__pycache__`. On Windows, run
-it from Git Bash or WSL, or zip the folder manually with those exclusions.
-
-## 10. Reset local data
-
-Stop the app, then delete the generated state (it is rebuilt automatically):
-
-```bash
-rm -rf data/uploads/* data/qdrant/* data/tables.duckdb* data/app.db logs/
-```
+Packaging the submission zip and resetting local data are covered in the handbook
+([Packaging](HANDBOOK.md#9-packaging), [Routine tasks](HANDBOOK.md#4-routine-tasks)).
 
 ---
 
-## Troubleshooting
+## Install troubleshooting
 
 | Symptom | Fix |
 |---|---|
 | `ERROR: No matching distribution found` / build errors during `pip install` | You are on Python 3.13+ or 3.10-. Recreate the venv with Python 3.12. |
-| `[SKIP] LLM round-trips - set GOOGLE_API_KEY` | `.env` is missing or the key is empty. The file must be named exactly `.env` in the project root. |
-| `403 PERMISSION_DENIED` / `API key not valid` | Regenerate the key in Google AI Studio and paste it without quotes or spaces. |
-| `429 RESOURCE_EXHAUSTED` | Free-tier rate limit hit; wait a minute. Uploads only call the LLM for borderline files. |
-| `404 model not found` | Model retired or not available to your key. Pick a current ID from <https://ai.google.dev/gemini-api/docs/models> and update `LLM_MODEL` / `LLM_FAST_MODEL`. |
+| `[SKIP] LLM round-trips - set GOOGLE_API_KEY` | `.env` is missing or the key is empty. The file must be named exactly `.env` in the project root. Keys can also be entered later on the Settings page. |
+| `403 PERMISSION_DENIED` / `API key not valid` in `check_setup` | Regenerate the key in Google AI Studio and paste it without quotes or spaces. |
 | Model download hangs or fails | Check proxy/firewall access to `huggingface.co`; delete `.cache/fastembed` and rerun `check_setup`. |
-| "The knowledge base is already open in another program" (`STORE_LOCKED`) | Embedded Qdrant allows one process. Stop other copies of the app (`pkill -f "src.web"`) before running `scripts.ingest` or `retrieval_eval`. |
-| Chat says the knowledge base is empty | Go to **Documents → Try sample documents**, or upload files. After deleting `data/qdrant/`, run `python -m scripts.ingest --reindex`. |
-| `address already in use` on start | Another program uses port 7400: set a free port, e.g. `WEB_PORT=7401`, in `.env`. |
-| A message shows a reference such as `ref 6dc76e7d` | Search for it in `logs/errors.log` for the full technical details, or open **Settings → Recent problems**. |
-| Logs grow too large | Lower `LOG_MAX_MB` / `LOG_BACKUP_COUNT`, switch to `LOG_ROTATION=time`, or raise `LOG_LEVEL` to `WARNING`. |
 | VS Code shows "package not installed" warnings | *Python: Select Interpreter* → `.venv/bin/python` (Windows: `.venv\Scripts\python.exe`). |
-| Upload rejected as off-topic but it is relevant | Use *Ingest anyway* if offered, or lower `RELEVANCE_REJECT_MARGIN` slightly (e.g. `-0.02`). Adding domain examples in `src/guardrails/domains.py` is the better long-term fix. |
+| Anything after the app has started | See the handbook's [Troubleshooting](HANDBOOK.md#7-troubleshooting) table. |

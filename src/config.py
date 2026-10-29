@@ -82,14 +82,14 @@ class Settings:
     def log_level_no(self) -> int:
         return logging.getLevelName(self.log_level)
 
-    def missing_api_keys(self) -> list[str]:
-        """Env vars required by the configured LLM providers that are not set."""
-        needed = {
-            _KEY_BY_PROVIDER[p]
-            for p in (provider_of(self.llm_model), provider_of(self.llm_fast_model))
-            if p in _KEY_BY_PROVIDER
-        }
-        return sorted(var for var in needed if not os.getenv(var, "").strip())
+    def missing_api_keys(self, models: tuple[str, ...] | None = None) -> list[str]:
+        """Env vars required by the given (default: configured) LLM providers that are not set."""
+        return missing_keys_for(models or (self.llm_model, self.llm_fast_model))
+
+
+def missing_keys_for(models) -> list[str]:
+    needed = {_KEY_BY_PROVIDER[p] for p in (provider_of(m) for m in models) if p in _KEY_BY_PROVIDER}
+    return sorted(var for var in needed if not os.getenv(var, "").strip())
 
 
 @lru_cache(maxsize=1)
@@ -164,3 +164,9 @@ def _validate(settings: Settings) -> None:
         problems.append(f"LOG_FORMAT must be text or json (got '{settings.log_format}')")
     if problems:
         raise ConfigError(detail="; ".join(problems), hint="Fix in .env: " + "; ".join(problems))
+
+
+def sample_documents() -> list[Path]:
+    """The demo corpus: top-level files in data/sample_docs (subfolders and hidden files like .DS_Store excluded)."""
+    folder = get_settings().sample_docs_dir
+    return sorted(p for p in folder.iterdir() if p.is_file() and not p.name.startswith("."))

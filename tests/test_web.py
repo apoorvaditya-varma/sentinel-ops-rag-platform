@@ -6,7 +6,7 @@ from dataclasses import replace
 import pytest
 from fastapi.testclient import TestClient
 
-from src.config import get_settings
+from src.config import get_settings, sample_documents
 from src.guardrails import relevance
 from src.history import HistoryStore
 from src.ingestion import pipeline, screening
@@ -38,7 +38,8 @@ def client(tmp_path_factory):
         mp.setattr(graph_module, "get_table_store", lambda: tables)
         mp.setattr(pipeline, "get_settings", lambda: settings)
         mp.setattr(screening, "get_settings", lambda: settings)
-        mp.setattr(type(get_settings()), "missing_api_keys", lambda self: ["GOOGLE_API_KEY"])
+        mp.setattr(services, "missing_keys_for", lambda models: ["GOOGLE_API_KEY"])
+        mp.setattr(relevance, "missing_keys_for", lambda models: ["GOOGLE_API_KEY"])
         services._PENDING.clear()
         with TestClient(main.app) as test_client:
             test_client.post("/documents/samples", headers=HTMX)
@@ -60,7 +61,7 @@ def test_samples_added_with_friendly_names(client):
     page = client.get("/documents").text
     assert "Information security policy" in page
     assert "Vulnerability scan 2026Q3" in page
-    sample_files = len(list(get_settings().sample_docs_dir.glob("*.*")))  # redteam/ subfolder excluded
+    sample_files = len(sample_documents())  # subfolders and Finder's .DS_Store excluded
     assert client.get("/api/health").json()["documents"] == sample_files
 
 
@@ -235,6 +236,7 @@ def test_ai_answer_rendered_with_citations_agents_and_trace(client, ai_on):
 
     body = client.post("/api/ask", json={"question": "What MFA do admins need?"}).json()
     assert body["mode"] == "answer" and body["meta"]["agents"] == ["researcher"]
+    assert isinstance(body["meta"]["seconds"], float)
     assert body["sources"][0]["label"] == "S1" and body["sources"][0]["cited"] is True
 
 

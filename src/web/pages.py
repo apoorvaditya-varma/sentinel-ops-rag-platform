@@ -2,17 +2,27 @@
 
 from __future__ import annotations
 
+import asyncio
+import os
+import threading
+import time
+
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
+from starlette.concurrency import run_in_threadpool
 
-from src.config import get_settings
-from src.errors import UserInputError
+from src.config import get_settings, missing_keys_for
+from src.env_file import set_env_value
+from src.errors import UserInputError, classify_exception
 from src.guardrails.domains import DOMAINS
 from src.guardrails.file_validation import ALLOWED_TYPES
 from src.history import get_history
+from src.llm import FAST_PREF, STRONG_PREF, build_chat_model, effective_models, reset_model_cache
+from src.logging_setup import audit
+from src.model_registry import PROVIDERS, mask_key, model_catalogue, split_model
 from src.web import services
-from src.web.rendering import is_htmx, render
 from src.web.presenters import file_kind, history_groups
+from src.web.rendering import is_htmx, render
 
 router = APIRouter(include_in_schema=False)
 
@@ -52,10 +62,21 @@ def conversation_page(request: Request, conversation_id: str):
     return render(request, "ask.html", page="ask", **_chat_context(conversation_id))
 
 
+async def ask_cancellable(request: Request, question: str, conversation_id: str | None, scope: list[str]):
+    """Answer in a worker thread; if the browser aborts the request, stop the agents."""
+    cancel = threading.Event()
+    job = asyncio.ensure_future(run_in_threadpool(services.ask, question, conversation_id, scope, cancel))
+    while not job.done():
+        if await request.is_disconnected():
+            cancel.set()
+        await asyncio.wait({job}, timeout=0.5)
+    return job.result()
+
+
 @router.post("/ask", response_class=HTMLResponse)
-def ask(request: Request, question: str = Form(""), conversation_id: str = Form(""),
-        scope: list[str] = Form(default_factory=list)):
-    result = services.ask(question, conversation_id or None, scope)
+async def ask(request: Request, question: str = Form(""), conversation_id: str = Form(""),
+              scope: list[str] = Form(default_factory=list)):
+    result = await ask_cancellable(request, question, conversation_id or None, scope)
     response = render(
         request, "partials/exchange.html",
         result=result, history=history_groups(get_history().conversations()),
@@ -142,17 +163,102 @@ def _recent_errors(lines: int = 30) -> list[str]:
     return entries[-lines:]
 
 
+def _models_context(refresh: bool = False, status: dict | None = None) -> dict:
+    settings = get_settings()
+    strong, fast = effective_models()
+    catalogue = model_catalogue(refresh)
+    known = {m for entry in catalogue for m in entry["models"]}
+    return {
+        "catalogue": catalogue,
+        "providers": {p.key: {"label": p.label, "key_env": p.key_env, "key_url": p.key_url,
+                              "masked": mask_key(os.getenv(p.key_env, "")), "has_key": bool(os.getenv(p.key_env, "").strip())}
+                      for p in PROVIDERS.values()},
+        "strong": strong, "fast": fast,
+        "strong_custom": strong not in known, "fast_custom": fast not in known,
+        "defaults": (settings.llm_model, settings.llm_fast_model),
+        "is_default": (strong, fast) == (settings.llm_model, settings.llm_fast_model),
+        "missing_keys": missing_keys_for((strong, fast)),
+        "ai_answers": services.ai_answers_wanted(),
+        "model_status": status or {},
+    }
+
+
 @router.get("/settings", response_class=HTMLResponse)
-def settings_page(request: Request):
+def settings_page(request: Request, refresh: int = 0):
     settings = get_settings()
     history = get_history()
     return render(
         request, "settings.html", page="settings",
         settings=settings, show_technical=_show_technical(),
-        missing_keys=settings.missing_api_keys(),
         counts={"documents": len(services.list_documents()), "conversations": len(history.conversations(1000))},
-        recent_errors=_recent_errors(),
+        recent_errors=_recent_errors(), **_models_context(refresh=bool(refresh)),
     )
+
+
+def _valid_model(value: str) -> str:
+    value = " ".join((value or "").split())
+    provider, name = split_model(value)
+    if provider not in PROVIDERS or not name or any(ch in name for ch in " /\\"):
+        raise UserInputError("Choose a model from the list, or enter one as provider:model "
+                             "(for example google_genai:gemini-3.8-flash).")
+    return value
+
+
+@router.post("/settings/models", response_class=HTMLResponse)
+def save_models(request: Request, strong: str = Form(""), fast: str = Form(""),
+                strong_custom: str = Form(""), fast_custom: str = Form("")):
+    strong = strong_custom if strong == "__custom__" else strong
+    fast = fast_custom if fast == "__custom__" else fast
+    history = get_history()
+    history.set_pref(STRONG_PREF, _valid_model(strong))
+    history.set_pref(FAST_PREF, _valid_model(fast))
+    audit("models_changed", strong=strong, fast=fast)
+    return render(request, "partials/model_settings.html", **_models_context(status={"saved": True}))
+
+
+@router.post("/settings/models/reset", response_class=HTMLResponse)
+def reset_models(request: Request):
+    history = get_history()
+    history.set_pref(STRONG_PREF, "")
+    history.set_pref(FAST_PREF, "")
+    return render(request, "partials/model_settings.html", **_models_context(status={"saved": True}))
+
+
+@router.post("/settings/models/test", response_class=HTMLResponse)
+async def test_models(request: Request):
+    strong, fast = effective_models()
+    results = {}
+    for role, model in (("strong", strong), ("fast", fast)):
+        started = time.perf_counter()
+        try:
+            if missing := missing_keys_for((model,)):
+                raise UserInputError(f"needs {', '.join(missing)}")
+            reply = await run_in_threadpool(lambda m=model: build_chat_model(m, 0.0).invoke("Reply with the single word: ready"))
+            results[role] = {"ok": True, "detail": f"replied in {time.perf_counter() - started:.1f} s"}
+        except Exception as exc:  # noqa: BLE001 - shown to the user as the test result
+            error = classify_exception(exc)
+            results[role] = {"ok": False, "detail": error.user_message if not isinstance(exc, UserInputError) else str(exc),
+                             "cause": (error.detail or "")[:160]}
+    return render(request, "partials/model_settings.html", **_models_context(status={"tests": results}))
+
+
+@router.post("/settings/keys", response_class=HTMLResponse)
+def save_key(request: Request, provider: str = Form(...), api_key: str = Form("")):
+    if provider not in PROVIDERS:
+        raise UserInputError("Unknown provider.")
+    env_var = PROVIDERS[provider].key_env
+    set_env_value(env_var, api_key.strip())
+    reset_model_cache()
+    model_catalogue(refresh=True)
+    audit("api_key_updated", provider=provider, cleared=not api_key.strip())
+    return render(request, "partials/model_settings.html",
+                  **_models_context(status={"saved": True, "key_provider": provider}))
+
+
+@router.post("/settings/ai-answers", response_class=HTMLResponse)
+def set_ai_answers(request: Request, ai_answers: str = Form("off")):
+    get_history().set_pref(services.AI_ANSWERS_PREF, "true" if ai_answers == "on" else "false")
+    return render(request, "partials/model_settings.html", **_models_context(status={"saved": True}))
 
 
 @router.post("/settings/technical", response_class=HTMLResponse)

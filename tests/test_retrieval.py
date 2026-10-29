@@ -5,7 +5,7 @@ from dataclasses import replace
 
 import pytest
 
-from src.config import get_settings
+from src.config import get_settings, sample_documents
 from src.ingestion import pipeline
 from src.retrieval import retriever
 from src.retrieval.retriever import query_identifiers, retrieve
@@ -32,7 +32,7 @@ def indexed(tmp_path_factory):
         mp.setattr(pipeline, "get_table_store", lambda: tables)
         mp.setattr(pipeline, "get_settings", lambda: settings)
         mp.setattr(retriever, "get_store", lambda: store)
-        reports = {p.name: pipeline.ingest_file(p) for p in sorted(SAMPLES.glob("*.*"))}
+        reports = {p.name: pipeline.ingest_file(p) for p in sample_documents()}
         yield store, tables, reports
     store.client.close()
     tables.close()
@@ -40,7 +40,7 @@ def indexed(tmp_path_factory):
 
 def test_every_sample_file_indexed(indexed):
     store, tables, reports = indexed
-    assert set(store.sources()) == {p.name for p in SAMPLES.glob("*.*")}
+    assert set(store.sources()) == {p.name for p in sample_documents()}
     assert store.count() == sum(r.chunks for r in reports.values())
     assert set(tables.tables().values()) == {"deployments_2026-10.csv", "siem_alerts_2026-10.csv",
                                              "vulnerability_scan_2026Q3.xlsx"}

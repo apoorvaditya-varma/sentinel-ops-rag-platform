@@ -26,6 +26,16 @@ def test_conversation_lifecycle(history):
     assert not history.conversation_exists(cid) and history.messages(cid) == []
 
 
+def test_sources_with_dates_are_stored(history):
+    """Data Analyst excerpts carry DuckDB date values; storing them must not crash."""
+    from datetime import date
+
+    cid = history.create_conversation("overdue findings")
+    history.add_message(cid, "assistant", "3 overdue [T1]",
+                        [{"label": "T1", "excerpt": {"kind": "table", "rows": [[date(2026, 8, 8), "Open"]]}}])
+    assert history.messages(cid)[0]["sources"][0]["excerpt"]["rows"] == [["2026-08-08", "Open"]]
+
+
 def test_long_titles_truncated_and_newest_first(history):
     first = history.create_conversation("x" * 100)
     second = history.create_conversation("second")

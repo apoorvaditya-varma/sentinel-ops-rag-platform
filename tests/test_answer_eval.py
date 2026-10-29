@@ -73,3 +73,23 @@ def test_harness_scores_a_scripted_run(tables):
                                          "intent": "blocked"}, models, tables)
     summary = answer_eval.summarise([result, blocked])
     assert summary["intent_accuracy"] == 1.0 and summary["fact_recall"] == 0.5 and summary["questions"] == 2
+
+
+def test_provider_failures_are_recorded_and_resumable(tables, monkeypatch):
+    monkeypatch.setattr("src.errors.time.sleep", lambda s: None)
+
+    class QuotaError(Exception):
+        code = 429
+
+    def broken(messages, tools):
+        raise QuotaError("429 RESOURCE_EXHAUSTED quota")
+
+    models = Models(ScriptedChatModel(responder=broken), ScriptedChatModel(responder=broken))
+    results, summary = answer_eval.run(models=models, tables=tables, limit=2, judge=False)
+    assert [r.error for r in results] == ["RATE_LIMIT: The AI service is busy or the usage limit was reached."] * 2
+    assert summary["questions"] == 0  # failed questions are not scored
+
+    good = answer_eval.ItemResult(results[0].question, intent_ok=True, fact_recall=1.0)
+    rerun, _ = answer_eval.run(models=models, tables=tables, limit=2, judge=False,
+                               done={good.question: good, results[1].question: results[1]})
+    assert rerun[0] is good and rerun[1].error  # the successful one was reused, the failed one retried

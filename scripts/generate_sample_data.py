@@ -550,6 +550,90 @@ def write_extra(out: Path) -> None:
     write_docx(out / "offtopic_hr_leave_policy.docx", HR_LEAVE_POLICY)
 
 
+# ---------------------------------------------------------------------------
+# Off-topic documents (data/sample_docs/offtopic): for demonstrating the topic
+# guardrail. All should be rejected; the facilities guide is borderline.
+# ---------------------------------------------------------------------------
+RECIPE = """Classic Lasagna (serves 6)
+
+Ingredients: 500 g beef mince, 1 onion, 2 garlic cloves, 800 g crushed tomatoes, 12 lasagne sheets,
+250 g ricotta, 200 g mozzarella, 50 g parmesan, olive oil, basil, salt, pepper, a pinch of sugar.
+
+Method
+1. Preheat the oven to 190C. Soften the onion and garlic in olive oil, add the mince and brown it.
+2. Add the tomatoes, sugar, salt and pepper; simmer for 30 minutes until thick.
+3. Layer sauce, pasta sheets, ricotta and mozzarella in a baking dish; repeat three times.
+4. Top with parmesan and bake for 45 minutes until golden and bubbling.
+5. Rest for 15 minutes before serving. Fresh basil and a pinch of sugar balance the acidity.
+"""
+
+FOOTBALL = """# Match report: United 3 - 2 Rovers
+
+United came from behind to beat Rovers 3-2 on Saturday afternoon. Rovers led twice in the first
+half through a header from a corner and a deflected shot, and the home side looked rattled before
+the break.
+
+After half-time United pulled one back with a penalty on 58 minutes, equalised from a counter-attack
+on 70 minutes and won it in stoppage time when the substitute striker slid in at the far post.
+
+The manager praised the team's resilience and confirmed the squad will be rotated for Wednesday's
+cup tie. Rovers drop to eighth in the table; United move up to fourth.
+"""
+
+TRAVEL_POLICY = [
+    ("Travel and Expense Policy", ""),
+    ("1. Flights and hotels", "Economy class for flights under six hours; premium economy may be booked for longer flights "
+     "with manager approval. Hotels are capped at 180 USD per night in major cities and 120 USD elsewhere."),
+    ("2. Meals and incidentals", "Meals are reimbursed up to 60 USD per day with itemised receipts. Alcohol is not reimbursable."),
+    ("3. Claims", "Expense reports must be submitted within 30 days of travel through the finance portal and approved by "
+     "the cost-centre manager. Corporate cards must not be used for personal purchases."),
+    ("4. Ground transport", "Use public transport or ride-hailing where practical. Mileage for private cars is reimbursed "
+     "at the standard rate."),
+]
+
+DIABETES_LEAFLET = """Living well with type 2 diabetes - patient leaflet
+
+Monitor your blood glucose as advised by your care team and keep a record of readings.
+Metformin is usually the first medicine prescribed, alongside a balanced diet and regular exercise.
+Most people aim for an HbA1c below 7 percent; your target may differ.
+Watch for signs of low blood sugar (shakiness, sweating, confusion) if you also take sulfonylureas.
+Book annual eye and foot examinations to catch complications early, and ask about the flu vaccine.
+"""
+
+FACILITIES_GUIDE = [
+    ("Facilities Helpdesk Guide", ""),
+    ("Reporting a problem", "Report broken lights, heating or air-conditioning faults, leaks and cleaning requests through "
+     "the facilities ticket form on the intranet. Urgent issues (water leaks, power loss) should be phoned to the "
+     "building manager."),
+    ("Meeting rooms", "Rooms are booked through the shared calendar. Cancel bookings you no longer need so others can use the room."),
+    ("Access cards", "Lost access cards must be reported the same day. Replacement cards are issued at reception "
+     "after your manager confirms the request."),
+    ("Canteen and parking", "The canteen is open 08:00-15:00. Visitor parking must be booked a day in advance."),
+]
+
+
+def build_sales_report() -> pd.DataFrame:
+    rows = []
+    for region in ["North", "South", "East", "West"]:
+        for product in ["Widget A", "Widget B", "Gadget Pro"]:
+            for month in ["2026-07", "2026-08", "2026-09"]:
+                units = RNG.randint(40, 220)
+                price = {"Widget A": 20, "Widget B": 24.5, "Gadget Pro": 89}[product]
+                rows.append({"month": month, "region": region, "product": product, "units_sold": units,
+                             "revenue_usd": round(units * price, 2), "sales_rep": RNG.choice(["J. Smith", "L. Wong", "A. Patel"])})
+    return pd.DataFrame(rows)
+
+
+def write_offtopic(out: Path) -> None:
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "lasagna_recipe.txt").write_text(RECIPE)
+    (out / "football_match_report.md").write_text(FOOTBALL)
+    write_pdf(out / "travel_expense_policy.pdf", "Travel and Expense Policy", TRAVEL_POLICY[1:])
+    (out / "diabetes_patient_leaflet.txt").write_text(DIABETES_LEAFLET)
+    write_docx(out / "facilities_helpdesk_guide.docx", FACILITIES_GUIDE)
+    build_sales_report().to_csv(out / "q3_sales_by_region.csv", index=False)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "redteam").mkdir(exist_ok=True)
@@ -565,8 +649,9 @@ def main() -> None:
     build_siem_alerts().to_csv(OUT / "siem_alerts_2026-10.csv", index=False)
     build_deployments().to_csv(OUT / "deployments_2026-10.csv", index=False)
     write_extra(OUT / "extra")
+    write_offtopic(OUT / "offtopic")
 
-    for path in sorted(OUT.rglob("*.*")):
+    for path in sorted(p for p in OUT.rglob("*.*") if not p.name.startswith(".")):
         print(f"{path.relative_to(OUT)}  ({path.stat().st_size / 1024:.1f} KB)")
 
 

@@ -8,14 +8,14 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, Request, UploadFile
 from pydantic import BaseModel, Field
 
 from src.errors import NotFoundError
 from src.history import get_history
 from src.vectorstore.store import get_store
 from src.web import services
-from src.web.pages import read_uploads
+from src.web.pages import ask_cancellable, read_uploads
 
 router = APIRouter(prefix="/api", tags=["api"])
 
@@ -50,8 +50,8 @@ def remove_document(source: str) -> dict:
 
 
 @router.post("/ask")
-def ask(body: AskRequest) -> dict:
-    return asdict(services.ask(body.question, body.conversation_id, body.sources))
+async def ask(request: Request, body: AskRequest) -> dict:
+    return asdict(await ask_cancellable(request, body.question, body.conversation_id, body.sources))
 
 
 @router.get("/conversations")

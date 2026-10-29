@@ -1,0 +1,96 @@
+{# AI answers switch, provider keys, model choice, test results. Swapped as a whole after each change. #}
+<div id="model-settings">
+  <section class="card" id="ai">
+    <h2>AI answers
+      <span class="info" tabindex="0" data-tip="When on, a team of AI agents writes answers from your documents with citations. When off (or when no key is set), the chat shows the most relevant passages instead. No document text leaves this computer except the passages sent to the AI provider you choose.">ⓘ</span>
+    </h2>
+    <label class="switch-row">
+      <input type="checkbox" name="ai_answers" {% if ai_answers %}checked{% endif %}
+             hx-post="/settings/ai-answers" hx-trigger="change" hx-target="#model-settings" hx-swap="outerHTML"
+             hx-vals='js:{ai_answers: event.target.checked ? "on" : "off"}'>
+      <span class="switch" aria-hidden="true"></span>
+      <span>Write answers with AI</span>
+    </label>
+    {% if ai_answers and missing_keys %}
+    <p class="note-warn">Switched on, but the chosen models need {{ missing_keys|join(" and ") }}. Add the key below.</p>
+    {% elif ai_answers %}
+    <p class="muted small">On. Answers come from <code>{{ strong }}</code> with <code>{{ fast }}</code> for planning and checks.</p>
+    {% else %}
+    <p class="muted small">Off. You'll see the most relevant passages from your documents instead of a written answer.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>AI providers
+      <span class="info" tabindex="0" data-tip="Keys are stored in the project's .env file on this computer and sent only to that provider. Each provider needs its own key; you only need the one for the models you choose.">ⓘ</span>
+    </h2>
+    <div class="provider-grid">
+      {% for key, p in providers.items() %}
+      <form class="provider" hx-post="/settings/keys" hx-target="#model-settings" hx-swap="outerHTML">
+        <input type="hidden" name="provider" value="{{ key }}">
+        <div class="provider-head">
+          <strong>{{ p.label }}</strong>
+          {% if p.has_key %}<span class="pill pill-ok">key set {{ p.masked }}</span>{% else %}<span class="pill pill-muted">no key</span>{% endif %}
+        </div>
+        <div class="key-row">
+          <input type="password" name="api_key" autocomplete="off" placeholder="{{ 'Replace key…' if p.has_key else 'Paste API key…' }}" aria-label="{{ p.label }} API key">
+          <button class="btn btn-small" type="submit">Save</button>
+        </div>
+        <p class="muted small"><code>{{ p.key_env }}</code> · <a href="{{ p.key_url }}" target="_blank" rel="noopener">Get a key</a>
+          {% if p.has_key %} · <button class="link-btn" type="submit" name="api_key" value="">remove</button>{% endif %}</p>
+        {% if model_status.key_provider == key %}<span class="saved">Saved</span>{% endif %}
+      </form>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Models</h2>
+    <form hx-post="/settings/models" hx-target="#model-settings" hx-swap="outerHTML" class="models-form">
+      {% for role, label, current, custom, tip in [
+        ("strong", "Answer model", strong, strong_custom, "The capable model. It analyses data tables and writes the final answer. Pick the best model you have a key for; it runs once or twice per question."),
+        ("fast", "Fast model", fast, fast_custom, "A cheaper, quicker model for the small steps: understanding the question and planning, grading passages, reviewing the answer, and screening borderline uploads. It runs 3–4 times per question, so speed and cost matter more than depth.")
+      ] %}
+      <div class="field">
+        <label for="model-{{ role }}">{{ label }}
+          <span class="info" tabindex="0" data-tip="{{ tip }}">ⓘ</span>
+        </label>
+        <div class="model-row">
+          <select id="model-{{ role }}" name="{{ role }}" data-model-select>
+            {% for entry in catalogue %}
+            <optgroup label="{{ entry.label }}{% if not entry.has_key %} (no key){% endif %}">
+              {% for m in entry.models %}
+              <option value="{{ m }}" {% if m == current %}selected{% endif %}>{{ m.split(":", 1)[1] }}</option>
+              {% endfor %}
+            </optgroup>
+            {% endfor %}
+            <option value="__custom__" {% if custom %}selected{% endif %}>Custom…</option>
+          </select>
+          <input type="text" name="{{ role }}_custom" data-model-custom placeholder="provider:model, e.g. openai:gpt-5.5"
+                 value="{{ current if custom else '' }}" {% if not custom %}hidden{% endif %} aria-label="Custom {{ label|lower }}">
+        </div>
+        {% if model_status.tests and model_status.tests[role] %}
+        {% set t = model_status.tests[role] %}
+        <p class="{{ 'test-ok' if t.ok else 'test-bad' }}">{{ "✓" if t.ok else "✗" }} {{ current }} — {{ t.detail }}{% if t.cause %} <span class="muted">({{ t.cause }})</span>{% endif %}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+      <div class="actions">
+        <button class="btn btn-primary" type="submit">Save</button>
+        <button class="btn" type="button" hx-post="/settings/models/test" hx-target="#model-settings" hx-swap="outerHTML"
+                hx-indicator="#model-test-busy">Test models</button>
+        {% if not is_default %}
+        <button class="btn btn-ghost" type="button" hx-post="/settings/models/reset" hx-target="#model-settings" hx-swap="outerHTML"
+                hx-confirm="Go back to the models from the .env file?">Reset to defaults</button>
+        {% endif %}
+        <a class="btn btn-ghost btn-small" href="/settings?refresh=1#ai" title="Fetch the latest model list from each provider">Refresh list</a>
+        <span id="model-test-busy" class="htmx-indicator busy"><span class="spinner"></span> Testing…</span>
+        {% if model_status.saved and not model_status.key_provider %}<span class="saved">Saved</span>{% endif %}
+      </div>
+    </form>
+    <p class="muted small">
+      {% for entry in catalogue %}{{ entry.label }}: {{ entry.models|length }} models ({{ entry.source }}){% if not loop.last %} · {% endif %}{% endfor %}.
+      Defaults from <code>.env</code>: <code>{{ defaults[0] }}</code> / <code>{{ defaults[1] }}</code>.
+    </p>
+  </section>
+</div>

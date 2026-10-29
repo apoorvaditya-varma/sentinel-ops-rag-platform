@@ -83,7 +83,8 @@ class HistoryStore:
         with closing(self._connect()) as con, con:
             con.execute(
                 "INSERT INTO messages (conversation_id, role, content, sources, created_at, meta) VALUES (?, ?, ?, ?, ?, ?)",
-                (conversation_id, role, content, json.dumps(sources) if sources else None, _now(),
+                # default=str: table excerpts from the Data Analyst can contain date/Decimal values
+                (conversation_id, role, content, json.dumps(sources, default=str) if sources else None, _now(),
                  json.dumps(meta, default=str) if meta else None),
             )
             con.execute("UPDATE conversations SET updated_at = ? WHERE id = ?", (_now(), conversation_id))
