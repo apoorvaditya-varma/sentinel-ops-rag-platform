@@ -79,7 +79,7 @@ Everything else has working defaults. The most useful settings:
 | `LLM_MODEL` | `google_genai:gemini-3.8-flash` | Strong model: planning, answers, table analysis |
 | `LLM_FAST_MODEL` | `google_genai:gemini-3.5-flash-lite` | Cheap model: supervisor plan, passage grading, reviewer, borderline upload screening |
 | `MAX_RETRIEVAL_RETRIES` / `MAX_ANSWER_RETRIES` | `2` / `1` | Researcher query rewrites / reviewer-requested answer revisions |
-| `AGENT_RECURSION_LIMIT` / `LLM_TIMEOUT_S` | `25` / `60` | Safety limit on agent steps per question / per-call LLM timeout |
+| `AGENT_RECURSION_LIMIT` / `LLM_TIMEOUT_S` | `25` / `30` | Safety limit on agent steps per question / per-call LLM timeout |
 | `EMBEDDING_MODEL` / `SPARSE_MODEL` / `RERANKER_MODEL` | bge-small / BM25 / MiniLM | Local retrieval models (no key needed) |
 | `FETCH_K` / `TOP_K` | `20` / `5` | Hybrid-search candidates / chunks kept after reranking |
 | `WEB_HOST` / `WEB_PORT` | `127.0.0.1` / `7400` | Where the web app listens. There is no login, so keep it on localhost |

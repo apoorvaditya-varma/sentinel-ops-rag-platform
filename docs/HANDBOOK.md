@@ -209,7 +209,7 @@ Verbosity, rotation (by size or time) and JSON output are set in `.env` (`LOG_*`
 | `address already in use` on start | Another program (or an old copy of the app) uses port 7400 | `pkill -f "src.web"`, or set `WEB_PORT` to a free port |
 | "The knowledge base is already open in another program" (`STORE_LOCKED`) | A second process holds the embedded index (another app copy, `scripts.ingest`, an evaluation) | Stop the other process and retry; only one process may use `data/qdrant/` |
 | Top bar says **AI answers off** | No key for the chosen models, or the switch is off | Settings → AI providers / AI answers; then **Test models** |
-| Answers take 30–60 s or say "(strong model unavailable, used fast model)" | The provider reports the strong model overloaded (HTTP 503/504); the app retries twice then switches to the fast model for that question | Wait, or pick another answer model in Settings (e.g. `gemini-3.6-flash`) |
+| Answers take up to a minute or say "(strong model unavailable, used fast model)" | The provider's strong model is overloaded or not answering; the app waits for two 30 s attempts, then switches to the fast model for that question | Wait, or pick another answer model in Settings (e.g. `gemini-3.6-flash`) |
 | "The AI service rejected the API key" | Wrong or revoked key | Paste a new key in Settings; create one at the provider's key page |
 | "The configured AI model is not available" | Model retired or not enabled for your key | Settings → Models → pick from the live list; **Refresh list** |
 | A question runs too long | Slow provider | Press **Stop**; the server cancels the agents. Ask again or rephrase |

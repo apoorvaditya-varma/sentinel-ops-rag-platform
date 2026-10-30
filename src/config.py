@@ -129,7 +129,7 @@ def _load() -> Settings:
         max_retrieval_retries=int(_env("MAX_RETRIEVAL_RETRIES", "2")),
         max_answer_retries=int(_env("MAX_ANSWER_RETRIES", "1")),
         agent_recursion_limit=int(_env("AGENT_RECURSION_LIMIT", "25")),
-        llm_timeout_s=int(_env("LLM_TIMEOUT_S", "60")),
+        llm_timeout_s=int(_env("LLM_TIMEOUT_S", "30")),
         llm_retry_attempts=int(_env("LLM_RETRY_ATTEMPTS", "4")),
         collection_name=_env("COLLECTION_NAME", "ops_knowledge"),
         web_host=_env("WEB_HOST", "127.0.0.1"),
