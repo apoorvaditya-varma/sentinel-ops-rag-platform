@@ -415,8 +415,34 @@ for example, `LOG_ROTATION=weekly-ish` raises a critical `ConfigError` naming th
   - answer relevance
 
   Results are saved to `data/eval/results/` together with the models in use. The harness itself is tested
-  with scripted models. **Status:** the harness is complete; the numbers from a live run will be recorded here
-  once the evaluation has been run with the final models.
+  with scripted models.
+
+  **Results (2026-10-30, `gemini-3.5-flash-lite` for both roles, 20 s pause between questions):**
+
+  | Metric | Result | Over |
+  |---|---|---|
+  | Intent accuracy (answer / out-of-scope / blocked) | **13 / 13** | all questions |
+  | Routing accuracy (expected specialists used) | **10 / 10** | questions with an expected plan |
+  | Fact recall (expected facts present) | **1.00** | 8 fact questions |
+  | Numeric accuracy (truth computed live by SQL) | **3 / 3** | table questions |
+  | Source hit (a cited passage from the expected file) | **8 / 8** | questions with expected sources |
+  | Citation rate | 10 / 11 | answered questions; the miss is the correct "couldn't find this" reply, which has nothing to cite |
+  | Faithfulness (LLM judge) | **1.00** | 10 judged answers |
+  | Answer relevance (LLM judge) | **1.00** | 10 judged answers |
+  | Time per question | 14 s average; 5–16 s for document questions, 27 s for a table question, 55 s for the researcher → analyst collaboration | |
+
+  The researcher → analyst question ("open critical findings past their SLA, and what the policy says")
+  returned the 7-day SLA with `[S1]` and the live count with `[T1]`. The lasagna request was handled as
+  out-of-scope without touching the documents, and the override attempt was blocked before any model call.
+  Caveat: 13 questions over a synthetic corpus the prompts were developed against; the numbers show the
+  pipeline works end to end, not how it would score on unseen real documents.
+
+  The default answer model `gemini-3.8-flash` was verified live on the same day, with the provider under heavy
+  load (50 s for a one-word reply). On a table question it ran the Data Analyst end to end: wrote the SQL,
+  returned the correct count and cited `[T1]`, in 47 s. On a document question it timed out twice and the
+  circuit breaker switched that request to `gemini-3.5-flash-lite`, which answered correctly (107 s in total).
+  The evaluation itself was run on `gemini-3.5-flash-lite` to stay within the free tier's 20 requests/day on
+  the default model.
 
 ## Limitations
 

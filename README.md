@@ -137,6 +137,18 @@ pinning) finds the answer passage in the top 5 for **100%** of questions and at 
 comparison of five configurations and the method are in
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#retrieval-evaluation-srcevaluationretrieval_evalpy).
 
+## Answer quality
+
+`python -m src.evaluation.answer_eval` runs 13 golden questions through the full agent pipeline: document
+facts, table counts, a researcher → analyst collaboration, a question the documents don't cover, an
+off-topic request and a prompt-injection attempt. Result on 2026-10-30 (`gemini-3.5-flash-lite`):
+**13/13 correct intent, 10/10 correct routing, fact recall 1.00, 3/3 numbers correct (truth computed live
+by SQL), 8/8 cited sources correct, faithfulness 1.00 and relevance 1.00** by an LLM judge, 14 s per
+question on average. The one question without a citation is the correct "I couldn't find this in your
+documents" reply. The set is small and synthetic, so it shows the pipeline works end to end rather than
+how it would score on unseen documents; details in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#evaluation-task-10).
+
 ## Error handling and logging
 
 **Severity levels.** Every failure is converted to an `AppError` (`src/errors.py`) with a severity,
@@ -296,7 +308,7 @@ tests/                      pytest suite (offline, 199 tests)
 | 7 | RAG pipeline | ✅ grounded answers with citations; runs live against Gemini |
 | 8 | Agents | ✅ supervisor + researcher + analyst + writer + reviewer; circuit breaker, cancellation (Stop) |
 | 9 | Reliability & safety | ✅ upload, indexing, SQL, question, prompt and answer guardrails; error levels; logging with rotation |
-| 10 | Deployment & docs | ✅ runs locally (handbook, setup guide, architecture, diagram); 🟡 answer-quality numbers to be recorded from `answer_eval` |
+| 10 | Deployment & docs | ✅ runs locally (handbook, setup guide, architecture, diagram); retrieval and answer evaluations recorded |
 
 ## Future work
 
