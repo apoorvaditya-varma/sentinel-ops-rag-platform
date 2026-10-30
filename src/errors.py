@@ -92,7 +92,8 @@ class RateLimitError(ModelError):
     severity = Severity.WARNING
     transient = True
     user_message = "The AI service is busy or the usage limit was reached."
-    hint = "Wait a minute and try again."
+    hint = ("Wait a minute and try again. If this keeps happening, the daily free-tier limit for this model "
+            "is probably used up: choose a different Answer model in Settings → Models.")
 
 
 class ServiceUnavailableError(AppError):

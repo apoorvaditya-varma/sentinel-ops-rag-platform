@@ -300,7 +300,8 @@ def ask(question: str, conversation_id: str | None = None, scope: list[str] | No
             error = report(exc, "answering with agents", log)
             answer, sources = _preview(check.question, scope, indexed)
             mode = "preview"
-            meta["notice"] = f"{error.user_message} Showing the most relevant passages instead (ref {error.reference})."
+            meta["notice"] = (f"{error.user_message} {error.hint} "
+                              f"Showing the most relevant passages instead (ref {error.reference}).")
     else:
         answer, sources = _preview(check.question, scope, indexed)
         mode = "preview"
