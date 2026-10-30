@@ -13,6 +13,10 @@
   </div>
   <p class="welcome-upload muted small">
     Searching {{ documents|length }} document{{ "s" if documents|length != 1 }}.
+    <a href="{{ ask_url() if conversation_id else '/' }}" title="Show different example questions">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h3l9 10h6M3 17h3l9-10h6M18 4l3 3-3 3M18 14l3 3-3 3"/></svg>
+      Shuffle questions
+    </a> ·
     <a href="/documents">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
       Upload more documents

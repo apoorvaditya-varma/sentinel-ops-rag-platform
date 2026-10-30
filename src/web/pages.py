@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import random
 import re
 import time
 import uuid
@@ -42,12 +43,39 @@ def last_conversation_url() -> str:
 
 _TOKEN_RE = re.compile(r"^[A-Za-z0-9-]{8,64}$")
 
-STARTER_QUESTIONS = [
-    "What is the patch deadline for critical vulnerabilities?",
-    "What should I do if an AWS access key is leaked?",
-    "What caused the payment API outage (INC-2041)?",
-    "How do I fix a pod stuck in CrashLoopBackOff?",
+# Starter questions, each tied to the document(s) that can answer it. Four are drawn at random
+# from those whose documents are in the knowledge base, so the suggestions follow what was uploaded.
+STARTER_POOL: list[tuple[str, tuple[str, ...]]] = [
+    ("What is the patch deadline for critical vulnerabilities?", ("information_security_policy",)),
+    ("What kind of MFA must administrators use?", ("information_security_policy",)),
+    ("How long do we keep security logs?", ("information_security_policy",)),
+    ("What should I do if an AWS access key is leaked?", ("runbook_leaked_credentials",)),
+    ("What caused the payment API outage (INC-2041)?", ("postmortem_INC-2041",)),
+    ("How do I fix a pod stuck in CrashLoopBackOff?", ("runbook_k8s_crashloopbackoff",)),
+    ("Who is involved in a SEV1 incident and how often do we send updates?", ("incident_response_plan",)),
+    ("How many critical findings are still open, by team?", ("vulnerability_scan",)),
+    ("Which open critical findings are past their SLA?", ("vulnerability_scan", "information_security_policy")),
+    ("How many high-severity SIEM alerts are still open?", ("siem_alerts",)),
+    ("Which deployments were rolled back this month?", ("deployments_",)),
+    ("What was agreed in change CHG-8903?", ("change_record_CHG-8903",)),
+    ("Can I paste customer data into a public chatbot?", ("ai_acceptable_use_standard",)),
+    ("Did the Q3 disaster-recovery test meet its RTO and RPO targets?", ("dr_test_report",)),
+    ("Which account had the biggest cloud cost increase in September?", ("cloud_cost_report",)),
+    ("What does firewall change FW-2210 allow?", ("firewall_change_FW-2210",)),
+    ("What can the SOC read-only IAM policy access?", ("iam_policy_soc",)),
+    ("What happened from IP 203.0.113.61 on 23 October?", ("auth-gateway", "siem_alerts")),
+    ("What resources and probes does the payment-api deployment define?", ("payment-api-deployment",)),
 ]
+STARTER_COUNT = 4
+
+
+def starter_questions(indexed_sources: list[str]) -> list[str]:
+    """Up to four random starter questions whose source documents are indexed."""
+    available = [
+        question for question, stems in STARTER_POOL
+        if any(src.startswith(stem) for stem in stems for src in indexed_sources)
+    ]
+    return random.sample(available, min(STARTER_COUNT, len(available)))
 
 
 def _show_technical() -> bool:
@@ -62,7 +90,7 @@ def _chat_context(conversation_id: str | None) -> dict:
         "messages": history.messages(conversation_id) if conversation_id else [],
         "history": history_groups(history.conversations()),
         "documents": services.list_documents(),
-        "starters": STARTER_QUESTIONS,
+        "starters": starter_questions([d["source"] for d in services.list_documents()]),
         "show_technical": _show_technical(),
     }
 

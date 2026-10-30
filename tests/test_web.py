@@ -81,6 +81,18 @@ def test_ask_creates_conversation_and_shows_featured_passage(client):
     assert "How quickly must critical" in page  # sidebar title + message
 
 
+def test_starter_questions_follow_the_indexed_documents():
+    from src.web.pages import STARTER_COUNT, STARTER_POOL, starter_questions
+
+    assert starter_questions([]) == []
+    only_policy = starter_questions(["information_security_policy.pdf"])
+    policy_pool = {q for q, stems in STARTER_POOL if "information_security_policy" in stems}
+    assert 0 < len(only_policy) <= STARTER_COUNT and set(only_policy) <= policy_pool
+    everything = [stem + ".x" for _, stems in STARTER_POOL for stem in stems]
+    draws = {tuple(starter_questions(everything)) for _ in range(20)}
+    assert len(draws) > 1 and all(len(d) == STARTER_COUNT for d in draws)  # shuffled, always four
+
+
 def test_ask_tab_returns_to_the_current_conversation(client):
     """Ask a question, visit Settings, click Ask: the same conversation opens (not a new chat)."""
     url = client.post("/ask", data={"question": "What is the patch SLA for critical vulnerabilities?"}, headers=HTMX).headers["HX-Push-Url"]

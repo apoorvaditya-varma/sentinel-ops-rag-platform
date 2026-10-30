@@ -93,7 +93,7 @@ it on a network interface without putting authentication in front of it.
 1. **Settings → AI providers**: confirm a key is set (green "key set ••••xxxx") or paste one. Click **Test models**.
 2. **Documents → Try sample documents** to load the demo corpus: the 8 files directly in
    `data/sample_docs/` (subfolders are never auto-loaded). Or drag in your own files.
-3. **Ask**: click a starter question, or type one. Expand **Sources** to see the cited passages and
+3. **Ask**: click one of the example questions (they are chosen to match the documents you have, and *Shuffle questions* shows others), or type your own. Expand **Sources** to see the cited passages and
    **Technical details** to see which agents ran.
 4. Try the guardrails with the hand-upload folders in `data/sample_docs/`:
    `extra/` (accepted, newer subject areas), `offtopic/` (all rejected with a reason),
